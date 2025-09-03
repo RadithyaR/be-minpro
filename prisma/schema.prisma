@@ -13,3 +13,204 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id                   Int            @id @default(autoincrement())
+  email                String         @unique
+  password             String
+  fullName             String
+  profilePicture       String?        
+  phone                String?        
+  bio                  String?       
+  resetPasswordToken   String?       
+  resetPasswordExpiry  DateTime?        
+  verificationToken    String?
+  isVerified           Boolean        @default(false) 
+  
+  roleId               Int
+  role                 Role           @relation(fields: [roleId], references: [id])
+  points               Point[]
+  transactions         Transaction[]
+  vouchers             Voucher[]
+  coupons              Coupon[]
+  referrals            Referral[]
+  events               Event[]        @relation("UserEvents")
+  reviews              Review[]
+  
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @default(now()) @updatedAt()    
+
+  @@map("users")
+}
+
+model Role {
+  id     Int    @id @default(autoincrement())
+  name   String
+  users  User[]
+
+  @@map("roles")
+}
+
+model Event {
+  id             Int            @id @default(autoincrement())
+  userId         Int
+  user           User           @relation("UserEvents", fields: [userId], references: [id])
+  locationId     Int
+  location       Location       @relation(fields: [locationId], references: [id])
+  name           String
+  description    String
+  eventImage     String?        // path atau URL gambar event
+  price          Int
+  startDate      DateTime
+  endDate        DateTime
+  availableSeats Int
+  vouchers       Voucher[]
+  transactions   Transaction[]
+  reviews        Review[]
+  createdAt      DateTime       @default(now())
+
+  @@map("events")
+}
+
+
+model Location {
+  id        Int     @id @default(autoincrement())
+  city      String
+  address   String
+  events    Event[]
+
+  @@map("locations")
+}
+
+model Transaction {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+
+  eventId    Int
+  event      Event     @relation(fields: [eventId], references: [id])
+
+  quantity   Int       @default(1)     // minimal 1 tiket
+  baseAmount Int                       // harga tiket × quantity
+
+  discountCoupon  Int?  @default(0)
+  discountVoucher Int?  @default(0)
+  discountPoint   Int?  @default(0)
+  finalAmount     Int                 // baseAmount - diskon total
+  
+  voucherId      Int?   @unique       // Relasi ke Voucher
+  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
+
+  points        Point[]
+  coupons       Coupon[]
+
+  paymentProof   String?              // path/url bukti bayar
+  statusId       Int
+  status         PaymentStatus @relation(fields: [statusId], references: [id])
+
+  createdAt DateTime  @default(now())
+
+  @@map("transactions")
+
+}
+
+model PaymentStatus {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  transactions Transaction[]
+
+// PENDING -> transaksi udah dibuat, tapi user belum bayar atau belum diverifikasi.
+// PAID -> transaksi udah dibayar
+// FAILED -> transaksi gagal
+// CANCELLED -> transaksi dibatalkan
+// REFUNDED -> transaksi sudah direfund
+// EXPIRED -> transaksi sudah kadaluarsa
+
+  @@map("payment_status")
+}
+
+model Voucher {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  eventId   Int
+  user      User    @relation(fields: [userId], references: [id])
+  event     Event   @relation(fields: [eventId], references: [id])
+
+  nominal   Int
+  isUsed    Boolean @default(false)
+  quota     Int     @default(1)   // jumlah maksimal voucher ini bisa dipakai
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vouchers")
+  @@unique([userId, eventId]) // biar 1 user 1 voucher per event
+}
+
+model Point {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+
+  transactionId Int? 
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  amount      Int
+  type        PointType
+  source      String?
+  expiredAt   DateTime?
+  remaining   Int?
+  description String?
+  createdAt   DateTime  @default(now())
+}
+
+enum PointType {
+  EARNED
+  USED
+  EXPIRED
+  BONUS
+}
+
+model Coupon {
+  id             Int          @id @default(autoincrement())
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+
+  nominal        Int          // besar diskon (misal 20000)
+  expiredAt      DateTime     // kadaluarsa
+  isUsed         Boolean      @default(false)
+
+  // optional relasi ke transaksi biar ketahuan dipakai dimana
+  transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  transactionId  Int?
+
+  createdAt      DateTime     @default(now())
+
+  @@map("coupons")
+}
+
+model Referral {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  code      String   @unique // kode referral unik untuk tiap user
+  createdAt DateTime @default(now())
+
+  @@map("referrals")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   Int
+  event     Event    @relation(fields: [eventId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
