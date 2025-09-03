@@ -1,14 +1,11 @@
-import express, {
-  Application,
-  json,
-  NextFunction,
-  Request,
-  Response,
-  urlencoded,
-} from "express";
+import express, { Application, json, urlencoded } from "express";
 import cors from "cors";
+import morgan from "morgan";
 
-const PORT = 8000;
+// routes
+import authRouter from "./routes/auth.routes";
+// import userRouter from "./routes/user.routes";
+// import eventRouter from "./routes/event.routes";
 
 export default class App {
   private app: Application;
@@ -17,6 +14,8 @@ export default class App {
     this.app = express();
 
     this.configure();
+    this.routes();
+    this.errorHandling();
   }
 
   private configure(): void {
@@ -24,11 +23,31 @@ export default class App {
     this.app.use(json());
     this.app.use(urlencoded({ extended: true }));
     this.app.use(express.static("public"));
+    this.app.use(morgan("dev")); // logging
   }
 
-  public start(): void {
-    this.app.listen(PORT, () =>
-      console.log(`[API] Local: http://localhost:${PORT}`)
-    );
+  private routes(): void {
+    this.app.use("/auth", authRouter);
+    // this.app.use("/users", userRouter);
+    // this.app.use("/events", eventRouter);
+  }
+
+  private errorHandling(): void {
+    // 404 handler
+    this.app.use((req, res) => {
+      res.status(404).json({ error: "Route not found" });
+    });
+
+    // global error handler
+    this.app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      console.error("Unhandled Error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+  }
+
+  public start(port: number = 8000): void {
+    this.app.listen(port, () => {
+      console.log(`[API] Server running on http://localhost:${port}`);
+    });
   }
 }
