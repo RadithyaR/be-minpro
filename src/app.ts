@@ -5,7 +5,7 @@ import morgan from "morgan";
 // routes
 import authRouter from "./routes/auth.routes";
 // import userRouter from "./routes/user.routes";
-// import eventRouter from "./routes/event.routes";
+import eventRouter from "./routes/event.routes";
 
 export default class App {
   private app: Application;
@@ -14,6 +14,7 @@ export default class App {
     this.app = express();
 
     this.configure();
+
     this.routes();
     this.errorHandling();
   }
@@ -29,7 +30,7 @@ export default class App {
   private routes(): void {
     this.app.use("/auth", authRouter);
     // this.app.use("/users", userRouter);
-    // this.app.use("/events", eventRouter);
+    this.app.use("/", eventRouter);
   }
 
   private errorHandling(): void {
@@ -39,10 +40,17 @@ export default class App {
     });
 
     // global error handler
-    this.app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error("Unhandled Error:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
+    this.app.use(
+      (
+        err: any,
+        req: express.Request,
+        res: express.Response,
+        next: express.NextFunction
+      ) => {
+        console.error("Unhandled Error:", err);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    );
   }
 
   public start(port: number = 8000): void {

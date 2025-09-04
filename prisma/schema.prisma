@@ -51,12 +51,18 @@ model Role {
   @@map("roles")
 }
 
+enum LocationType {
+  online
+  offline
+}
 model Event {
   id             Int            @id @default(autoincrement())
   userId         Int
   user           User           @relation("UserEvents", fields: [userId], references: [id])
-  locationId     Int
-  location       Location       @relation(fields: [locationId], references: [id])
+  locationType   LocationType
+  address        String?
+  city           String?
+  link           String?
   name           String
   description    String
   eventImage     String?        // path atau URL gambar event
@@ -70,16 +76,6 @@ model Event {
   createdAt      DateTime       @default(now())
 
   @@map("events")
-}
-
-
-model Location {
-  id        Int     @id @default(autoincrement())
-  city      String
-  address   String
-  events    Event[]
-
-  @@map("locations")
 }
 
 model Transaction {
