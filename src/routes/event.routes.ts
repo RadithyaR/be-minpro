@@ -24,28 +24,11 @@ import { eventImageUpload, singleFile } from "../utils/uploader";
 
 const router = Router();
 
-// export default class EventRoute {
-//
-//   private eventController: EventController;
-
-//   constructor() {
-//     this.router = Router();
-//     this.eventController = new EventController();
-
-//     this.router.post(
-//       "/events",
-//       authMiddleware(["event_organizer"]),
-//       singleFile("ev", "event-image"),
-//       this.eventController.createEvent.bind(this.eventController)
-//     );
-//   }
-// }
-
 /* ========================
    🔹 PUBLIC ROUTES (semua user)
 ======================== */
-router.get("/events", getEvents);
-router.get("/events/:id", getEventById);
+router.get("/events", authMiddleware(), getEvents);
+router.get("/events/:id", authMiddleware(), getEventById);
 
 /* ========================
    🔹 ORGANIZER ONLY ROUTES

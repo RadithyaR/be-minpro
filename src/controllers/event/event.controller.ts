@@ -1,14 +1,14 @@
 import { NextFunction, Request, Response } from "express";
 import prisma from "../../lib/prisma";
-import EventService from "../../services/event.service";
 import { Event } from "@prisma/client";
 
 // // CREATE Event (Organizer only)
 export const createEvent = async (req: Request, res: Response) => {
   try {
-    console.log("Request body:", req.body);
-    console.log("Request files:", req.file);
+    // console.log("Request body:", req.body);
+    // console.log("Request files:", req.file);
     const userId = (req as any).user.userId;
+    console.log(userId);
     const eventImage = req.file ? req.file.path : null;
 
     const {

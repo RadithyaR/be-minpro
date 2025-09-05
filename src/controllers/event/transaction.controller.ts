@@ -7,7 +7,7 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     const { id } = req.params;
     const transaction = await prisma.transaction.update({
       where: { id: Number(id) },
-      data: { statusId: 2 }, 
+      data: { statusId: 2 },
       include: { user: true, event: true },
     });
 
