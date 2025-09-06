@@ -7,7 +7,6 @@ import authRouter from "./routes/auth.routes";
 // import userRouter from "./routes/user.routes";
 import eventRouter from "./routes/event.routes";
 import voucherRouter from "./routes/voucher.routes";
-import { startCleanVoucher } from "./utils/voucherCleanup";
 
 export default class App {
   private app: Application;

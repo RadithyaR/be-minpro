@@ -236,7 +236,7 @@ export const getEventVoucher = async (req: Request, res: Response) => {
   }
 };
 
-// update voucher (Event Organizer only - hanya untuk voucher mereka sendiri)
+// update voucher (Event Organizer )
 export const updateVoucher = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
