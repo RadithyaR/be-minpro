@@ -1,4 +1,3 @@
-
 import { Request, Response } from "express";
 import prisma from "../../lib/prisma";
 import bcrypt from "bcrypt";
@@ -12,18 +11,27 @@ export const register = async (req: Request, res: Response) => {
 
     // cek email sudah dipakai
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ error: "Email already in use" });
+    if (existingUser)
+      return res.status(400).json({ error: "Email already in use" });
 
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ambil role default "customer"
-    const roleCustomer = await prisma.role.findFirst({ where: { name: "customer" } });
-    if (!roleCustomer) return res.status(400).json({ error: "Default customer role not found" });
+    const roleCustomer = await prisma.role.findFirst({
+      where: { name: "customer" },
+    });
+    if (!roleCustomer)
+      return res.status(400).json({ error: "Default customer role not found" });
 
     // buat user baru
     const newUser = await prisma.user.create({
-      data: { email, password: hashedPassword, fullName, roleId: roleCustomer.id },
+      data: {
+        email,
+        password: hashedPassword,
+        fullName,
+        roleId: roleCustomer.id,
+      },
     });
 
     // proses referral (bonus poin, kupon, dsb)
@@ -31,7 +39,12 @@ export const register = async (req: Request, res: Response) => {
 
     // kirim email ke user baru, tapi aman kalau SMTP belum dikonfigurasi
     try {
-      if (referralCode && process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      if (
+        referralCode &&
+        process.env.SMTP_HOST &&
+        process.env.SMTP_USER &&
+        process.env.SMTP_PASS
+      ) {
         await sendEmail(
           newUser.email,
           "Selamat! Anda mendapat kupon",
