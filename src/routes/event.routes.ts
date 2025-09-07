@@ -12,15 +12,10 @@ import {
   getEventStatistics,
 } from "../controllers/event/dashboard.controller";
 
-import {
-  acceptTransaction,
-  rejectTransaction,
-} from "../controllers/event/transaction.controller";
-
 import { getAttendees } from "../controllers/event/attendee.controller";
 
 import { authMiddleware } from "../../middleware/auth.middleware";
-import { eventImageUpload, singleFile } from "../utils/uploader";
+import { singleFile } from "../utils/uploader";
 
 const router = Router();
 
@@ -37,7 +32,7 @@ router.get("/events/:id", authMiddleware(), getEventById);
 router.post(
   "/events",
   authMiddleware(["event_organizer"]),
-  eventImageUpload(),
+  singleFile("evt", "event-images", "eventImage"),
   createEvent
 );
 router.put("/events/:id", authMiddleware(["event_organizer"]), updateEvent);
@@ -53,18 +48,6 @@ router.get(
   "/dashboard/statistics",
   authMiddleware(["event_organizer"]),
   getEventStatistics
-);
-
-// // Transactions
-router.put(
-  "/transactions/:id/accept",
-  authMiddleware(["event_organizer"]),
-  acceptTransaction
-);
-router.put(
-  "/transactions/:id/reject",
-  authMiddleware(["event_organizer"]),
-  rejectTransaction
 );
 
 // // Attendees
