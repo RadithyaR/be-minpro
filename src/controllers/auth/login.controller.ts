@@ -7,32 +7,62 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
+    // Cari user + role tunggal
     const user = await prisma.user.findUnique({
       where: { email },
-      include: {
-        role: true, //JOIN ke tabel roles
-      },
+      include: { role: true },
     });
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Cek password
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+    if (!valid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
-    const accounts = [
-      {
+    // Role aktif default dari DB
+    const activeRole = user.role.name as "customer" | "event_organizer";
+
+    // Generate token untuk role aktif
+    const activeToken = jwt.sign(
+      { userId: user.id, role: activeRole },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1d" }
+    );
+
+    // Tambahin role lain secara manual
+    const allRoles: ("customer" | "event_organizer")[] =
+      activeRole === "customer"
+        ? ["customer", "event_organizer"]
+        : ["event_organizer", "customer"];
+
+    const accounts = allRoles.map((role) => ({
+      id: user.id,
+      role,
+      token: jwt.sign(
+        { userId: user.id, role },
+        process.env.JWT_SECRET!,
+        { expiresIn: "1d" }
+      ),
+    }));
+
+    // Response ke frontend
+    return res.json({
+      message: "Login success",
+      token: activeToken,
+      user: {
         id: user.id,
-        role: user.role.name,
-        token: jwt.sign(
-          { userId: user.id, role: user.role.name },
-          process.env.JWT_SECRET!,
-          { expiresIn: "1d" }
-        ),
+        fullName: user.fullName,
+        email: user.email,
+        role: activeRole,
       },
-    ];
-
-    return res.json({ message: "Login success", accounts });
+      accounts,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

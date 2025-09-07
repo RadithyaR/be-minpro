@@ -1,6 +1,15 @@
 import { Request, Response } from "express";
 import prisma from "../../lib/prisma";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
@@ -22,8 +31,18 @@ export const forgotPassword = async (req: Request, res: Response) => {
       },
     });
 
-    // TODO: ganti dengan nodemailer biar kirim email sungguhan
-    console.log(`🔗 Reset password link: https://your-frontend.com/reset-password?token=${token}`);
+    await transporter.sendMail({
+      from: `"EventKu" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Reset your password",
+      html: `
+        <p>Halo ${user.fullName || "User"},</p>
+        <p>Klik link berikut untuk reset password (berlaku 15 menit):</p>
+        <a href="http://localhost:3000/reset-password?token=${token}">
+          Reset Password
+        </a>
+      `,
+    });
 
     return res.json({ message: "Password reset link sent to your email" });
   } catch (err) {
