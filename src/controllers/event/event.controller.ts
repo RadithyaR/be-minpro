@@ -65,7 +65,29 @@ export const createEvent = async (req: Request, res: Response) => {
 export const getEvents = async (req: Request, res: Response) => {
   try {
     const events = await prisma.event.findMany({ include: { user: true } });
-    return res.json(events);
+
+    const eventsWithStatus = events.map((event) => {
+      const now = new Date();
+      const startDate = new Date(event.startDate);
+      const endDate = new Date(event.endDate);
+
+      let status: string;
+
+      if (now < startDate) {
+        status = "upcoming"; // jika belum mulai status upcoming
+      } else if (now >= startDate && now <= endDate) {
+        status = "ongoing"; // jika sedang berjalan status ongoing
+      } else {
+        status = "finished"; //jika selesai status finished
+      }
+
+      return {
+        ...event,
+        status, // field virtual untuk status event
+      };
+    });
+
+    return res.json(eventsWithStatus);
   } catch (err) {
     console.error("Get events error:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -78,7 +100,28 @@ export const getEventById = async (req: Request, res: Response) => {
     const { id } = req.params;
     const event = await prisma.event.findUnique({ where: { id: Number(id) } });
     if (!event) return res.status(404).json({ error: "Event not found" });
-    return res.json(event);
+
+    // status virtual
+    const now = new Date();
+    const startDate = new Date(event.startDate);
+    const endDate = new Date(event.endDate);
+
+    let status: string;
+
+    if (now < startDate) {
+      status = "upcoming";
+    } else if (now >= startDate && now <= endDate) {
+      status = "ongoing";
+    } else {
+      status = "finished";
+    }
+
+    const eventWithStatus = {
+      ...event,
+      status,
+    };
+
+    return res.json(eventWithStatus);
   } catch (err) {
     console.error("Get event error:", err);
     return res.status(500).json({ error: "Internal server error" });

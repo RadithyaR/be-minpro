@@ -27,7 +27,7 @@ const router = Router();
 /* ========================
    🔹 PUBLIC ROUTES (semua user)
 ======================== */
-router.get("/events", authMiddleware(), getEvents);
+router.get("/events", getEvents);
 router.get("/events/:id", authMiddleware(), getEventById);
 
 /* ========================
