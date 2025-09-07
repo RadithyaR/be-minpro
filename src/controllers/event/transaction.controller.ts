@@ -1,6 +1,15 @@
 import { Request, Response } from "express";
 import prisma from "../../lib/prisma";
 import { sendEmail } from "../../utils/email";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Menghitung diskon
 const calculateDiscounts = (
@@ -498,7 +507,16 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
       include: {
-        event: true,
+        event: {
+          include: {
+            user: {
+              select: {
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
         status: true,
       },
     });
@@ -543,6 +561,15 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     });
 
     // Kirim email notifikasi ke customer
+    await transporter.sendMail({
+      from: `"EventKu" <${process.env.EMAIL_USER}>`,
+      to: transaction.event.user.email,
+      subject: "Transaction Approved",
+      html: `
+        <p>Halo ${transaction.event.user.fullName || "User"},</p>
+        <p>Transaksi anda pada ${transaction.event.name} Diterima</p>
+      `,
+    });
 
     res.json({
       message: "Transaction accepted successfully",
@@ -563,7 +590,16 @@ export const rejectTransaction = async (req: Request, res: Response) => {
     const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
       include: {
-        event: true,
+        event: {
+          include: {
+            user: {
+              select: {
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
         status: true,
         points: true,
         coupons: true,
@@ -664,6 +700,15 @@ export const rejectTransaction = async (req: Request, res: Response) => {
     });
 
     //  Kirim email notifikasi ke customer
+    await transporter.sendMail({
+      from: `"EventKu" <${process.env.EMAIL_USER}>`,
+      to: transaction.event.user.email,
+      subject: "Transaction Rejected",
+      html: `
+        <p>Halo ${transaction.event.user.fullName || "User"},</p>
+        <p>Transaksi anda pada ${transaction.event.name} Ditolak</p>
+      `,
+    });
 
     res.json({
       message: "Transaction rejected successfully",
