@@ -61,7 +61,3 @@ export const singleFile = (
     },
   ];
 };
-
-export const eventImageUpload = () => {
-  return singleFile("event-", "event-images", "eventImage");
-};
