@@ -94,6 +94,81 @@ export const getEvents = async (req: Request, res: Response) => {
   }
 };
 
+// GET events by organizer (Organizer only)
+export const getEventsByOrganizer = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const events = await prisma.event.findMany({
+      where: {
+        userId: userId, // Filter by organizer's user ID
+      },
+      include: {
+        user: true,
+        transactions: {
+          include: {
+            status: true,
+          },
+        },
+        reviews: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Tambahkan status virtual dan statistics
+    const eventsWithDetails = events.map((event) => {
+      const now = new Date();
+      const startDate = new Date(event.startDate);
+      const endDate = new Date(event.endDate);
+
+      let status: string;
+      if (now < startDate) status = "upcoming";
+      else if (now >= startDate && now <= endDate) status = "ongoing";
+      else status = "finished";
+
+      // Hitung statistics
+      const totalTransactions = event.transactions.length;
+      const completedTransactions = event.transactions.filter(
+        (t) => t.status.name === "DONE"
+      ).length;
+      const totalRevenue = event.transactions
+        .filter((t) => t.status.name === "DONE")
+        .reduce((sum, t) => sum + t.finalAmount, 0);
+
+      const averageRating =
+        event.reviews.length > 0
+          ? event.reviews.reduce((sum, r) => sum + r.rating, 0) /
+            event.reviews.length
+          : 0;
+
+      return {
+        ...event,
+        status,
+        statistics: {
+          totalTransactions,
+          completedTransactions,
+          totalRevenue,
+          averageRating: Math.round(averageRating * 10) / 10, // 1 decimal place
+          availableSeats: event.availableSeats,
+          totalSeats: event.availableSeats + totalTransactions, // assuming initial quota
+        },
+      };
+    });
+
+    return res.json({
+      message: "Organizer events retrieved successfully",
+      data: eventsWithDetails,
+    });
+  } catch (err) {
+    console.error("Get organizer events error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // // GET event by ID (Public)
 export const getEventById = async (req: Request, res: Response) => {
   try {

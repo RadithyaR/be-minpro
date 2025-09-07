@@ -5,6 +5,7 @@ import {
   getEventById,
   updateEvent,
   deleteEvent,
+  getEventsByOrganizer,
 } from "../controllers/event/event.controller";
 
 import {
@@ -34,6 +35,11 @@ router.post(
   authMiddleware(["event_organizer"]),
   singleFile("evt", "event-images", "eventImage"),
   createEvent
+);
+router.get(
+  "/organizer/my-events",
+  authMiddleware(["event_organizer"]),
+  getEventsByOrganizer
 );
 router.put("/events/:id", authMiddleware(["event_organizer"]), updateEvent);
 router.delete("/events/:id", authMiddleware(["event_organizer"]), deleteEvent);
