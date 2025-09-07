@@ -7,6 +7,7 @@ import authRouter from "./routes/auth.routes";
 // import userRouter from "./routes/user.routes";
 import eventRouter from "./routes/event.routes";
 import voucherRouter from "./routes/voucher.routes";
+import transactionRouter from "./routes/transaction.routes";
 
 export default class App {
   private app: Application;
@@ -32,6 +33,7 @@ export default class App {
     // this.app.use("/users", userRouter);
     this.app.use("/", eventRouter);
     this.app.use("/voucher", voucherRouter);
+    this.app.use("/transaction", transactionRouter);
   }
 
   private errorHandling(): void {

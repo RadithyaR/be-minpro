@@ -39,4 +39,5 @@ router.patch(
   authMiddleware(["event_organizer"]),
   rejectTransaction
 );
+
 export default router;
