@@ -331,7 +331,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
   }
 };
 
-// EXPIRE Transaction - FIXED
+// EXPIRE Transaction (auto)
 export const cancelTransaction = async (
   transactionId: number,
   reason: "EXPIRED" | "CANCELLED" | "FAILED"
