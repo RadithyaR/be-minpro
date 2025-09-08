@@ -24,7 +24,7 @@ const router = Router();
    🔹 PUBLIC ROUTES (semua user)
 ======================== */
 router.get("/events", getEvents);
-router.get("/events/:id", authMiddleware(), getEventById);
+router.get("/event-detail/:id", getEventById);
 
 /* ========================
    🔹 ORGANIZER ONLY ROUTES

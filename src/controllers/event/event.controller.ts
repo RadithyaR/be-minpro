@@ -21,7 +21,7 @@ export const createEvent = async (req: Request, res: Response) => {
       city,
       link,
       price,
-      quota,
+      availableSeats,
     } = req.body;
 
     //validasi tipe lokasi
@@ -49,7 +49,7 @@ export const createEvent = async (req: Request, res: Response) => {
         city: city,
         link: link,
         price: Number(price),
-        availableSeats: Number(quota),
+        availableSeats: Number(availableSeats),
         userId: userId,
       },
     });
@@ -173,7 +173,10 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
 export const getEventById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const event = await prisma.event.findUnique({ where: { id: Number(id) } });
+    const event = await prisma.event.findUnique({
+      where: { id: Number(id) },
+      include: { user: { select: { fullName: true } } },
+    });
     if (!event) return res.status(404).json({ error: "Event not found" });
 
     // status virtual
