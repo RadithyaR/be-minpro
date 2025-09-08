@@ -252,8 +252,8 @@ export const createTransaction = async (req: Request, res: Response) => {
         include: { status: true },
       });
 
-      if (freshTransaction && freshTransaction.status.name === "PENDING") {
-        await cancelTransaction(transaction.id, "EXPIRED");
+      if (freshTransaction && freshTransaction.status.name === "PENDING\n") {
+        await cancelTransaction(transaction.id, "EXPIRED\n");
       }
     }, 2 * 60 * 60 * 1000);
 
@@ -272,7 +272,7 @@ export const createTransaction = async (req: Request, res: Response) => {
 export const uploadPaymentProof = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;
-    const { transactionId } = req.params;
+    const { id } = req.params;
     const paymentProof = req.file ? req.file.path : null;
 
     if (!paymentProof) {
@@ -280,7 +280,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
     }
 
     const transaction = await prisma.transaction.findUnique({
-      where: { id: Number(transactionId) },
+      where: { id: Number(id) },
       include: { status: true },
     });
 
@@ -292,14 +292,14 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    if (transaction.status.name !== "PENDING") {
+    if (transaction.status.name !== "PENDING\n") {
       return res.status(400).json({
         error: "Cannot upload payment proof for this transaction status",
       });
     }
 
     const updatedTransaction = await prisma.transaction.update({
-      where: { id: Number(transactionId) },
+      where: { id: Number(id) },
       data: {
         paymentProof: paymentProof,
         statusId: 2, // PAID - menunggu konfirmasi admin
@@ -317,8 +317,8 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
         include: { status: true },
       });
 
-      if (freshTransaction && freshTransaction.status.name === "PAID") {
-        await cancelTransaction(transaction.id, "CANCELLED");
+      if (freshTransaction && freshTransaction.status.name === "PAID\n") {
+        await cancelTransaction(transaction.id, "CANCELLED\n");
       }
     }, 3 * 24 * 60 * 60 * 1000); // 3 hari
 
@@ -335,7 +335,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
 // EXPIRE Transaction (auto)
 export const cancelTransaction = async (
   transactionId: number,
-  reason: "EXPIRED" | "CANCELLED" | "FAILED"
+  reason: "EXPIRED\n" | "CANCELLED\n" | "FAILED\n"
 ) => {
   return await prisma.$transaction(async (prisma) => {
     const transaction = await prisma.transaction.findUnique({
@@ -407,7 +407,8 @@ export const cancelTransaction = async (
     }
 
     //Update transaction status
-    const statusId = reason === "EXPIRED" ? 6 : reason === "CANCELLED" ? 4 : 3;
+    const statusId =
+      reason === "EXPIRED\n" ? 6 : reason === "CANCELLED\n" ? 4 : 3;
 
     return await prisma.transaction.update({
       where: { id: transactionId },
@@ -532,7 +533,7 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     }
 
     // Validasi: hanya transaction dengan status PAID yang bisa di-accept
-    if (transaction.status.name !== "PAID") {
+    if (transaction.status.name !== "PAID\n") {
       return res.status(400).json({
         error: "Cannot accept transaction with current status",
       });
@@ -618,7 +619,7 @@ export const rejectTransaction = async (req: Request, res: Response) => {
     }
 
     // Validasi: hanya transaction dengan status PAID yang bisa di-reject
-    if (transaction.status.name !== "PAID") {
+    if (transaction.status.name !== "PAID\n") {
       return res.status(400).json({
         error: "Cannot reject transaction with current status",
       });
