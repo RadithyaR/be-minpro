@@ -42,11 +42,9 @@ export const login = async (req: Request, res: Response) => {
     const accounts = allRoles.map((role) => ({
       id: user.id,
       role,
-      token: jwt.sign(
-        { userId: user.id, role },
-        process.env.JWT_SECRET!,
-        { expiresIn: "1d" }
-      ),
+      token: jwt.sign({ userId: user.id, role }, process.env.JWT_SECRET!, {
+        expiresIn: "1d",
+      }),
     }));
 
     // Response ke frontend

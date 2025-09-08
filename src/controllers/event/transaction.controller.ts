@@ -244,6 +244,7 @@ export const createTransaction = async (req: Request, res: Response) => {
       });
     });
 
+    //scheduler
     // Set timeout untuk expired transaction (2 jam)
     setTimeout(async () => {
       const freshTransaction = await prisma.transaction.findUnique({
