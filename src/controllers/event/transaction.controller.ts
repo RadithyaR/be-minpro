@@ -252,8 +252,8 @@ export const createTransaction = async (req: Request, res: Response) => {
         include: { status: true },
       });
 
-      if (freshTransaction && freshTransaction.status.name === "PENDING\n") {
-        await cancelTransaction(transaction.id, "EXPIRED\n");
+      if (freshTransaction && freshTransaction.status.name === "PENDING") {
+        await cancelTransaction(transaction.id, "EXPIRED");
       }
     }, 2 * 60 * 60 * 1000);
 
@@ -292,7 +292,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    if (transaction.status.name !== "PENDING\n") {
+    if (transaction.status.name !== "PENDING") {
       return res.status(400).json({
         error: "Cannot upload payment proof for this transaction status",
       });
@@ -317,8 +317,8 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
         include: { status: true },
       });
 
-      if (freshTransaction && freshTransaction.status.name === "PAID\n") {
-        await cancelTransaction(transaction.id, "CANCELLED\n");
+      if (freshTransaction && freshTransaction.status.name === "PAID") {
+        await cancelTransaction(transaction.id, "CANCELLED");
       }
     }, 3 * 24 * 60 * 60 * 1000); // 3 hari
 
@@ -335,7 +335,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
 // EXPIRE Transaction (auto)
 export const cancelTransaction = async (
   transactionId: number,
-  reason: "EXPIRED\n" | "CANCELLED\n" | "FAILED\n"
+  reason: "EXPIRED" | "CANCELLED" | "FAILED"
 ) => {
   return await prisma.$transaction(async (prisma) => {
     const transaction = await prisma.transaction.findUnique({
@@ -407,8 +407,7 @@ export const cancelTransaction = async (
     }
 
     //Update transaction status
-    const statusId =
-      reason === "EXPIRED\n" ? 6 : reason === "CANCELLED\n" ? 4 : 3;
+    const statusId = reason === "EXPIRED" ? 6 : reason === "CANCELLED" ? 4 : 3;
 
     return await prisma.transaction.update({
       where: { id: transactionId },
@@ -533,7 +532,7 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     }
 
     // Validasi: hanya transaction dengan status PAID yang bisa di-accept
-    if (transaction.status.name !== "PAID\n") {
+    if (transaction.status.name !== "PAID") {
       return res.status(400).json({
         error: "Cannot accept transaction with current status",
       });
@@ -619,7 +618,7 @@ export const rejectTransaction = async (req: Request, res: Response) => {
     }
 
     // Validasi: hanya transaction dengan status PAID yang bisa di-reject
-    if (transaction.status.name !== "PAID\n") {
+    if (transaction.status.name !== "PAID") {
       return res.status(400).json({
         error: "Cannot reject transaction with current status",
       });
