@@ -4,11 +4,21 @@ import morgan from "morgan";
 
 // routes
 import authRouter from "./routes/auth.routes";
+
+
 // import userRouter from "./routes/user.routes";
 import eventRouter from "./routes/event.routes";
 import voucherRouter from "./routes/voucher.routes";
 import transactionRouter from "./routes/transaction.routes";
 import reviewRouter from "./routes/review.routes";
+
+// Dashboard
+import revenueRouter from "./routes/revenue.routes";
+import attendeeRouter from "./routes/attendees.routes";
+import overviewRouter from "./routes/overview.routes";
+import topEventRoutes from "./routes/topevents.routes";
+import transactionStatusRoutes from "./routes/transactionstatus.routes";
+
 
 export default class App {
   private app: Application;
@@ -31,11 +41,17 @@ export default class App {
 
   private routes(): void {
     this.app.use("/auth", authRouter);
-    // this.app.use("/users", userRouter);
+    // this.app.use("/users", userRoutes);
     this.app.use("/", eventRouter);
     this.app.use("/voucher", voucherRouter);
     this.app.use("/transaction", transactionRouter);
     this.app.use("/review", reviewRouter);
+    this.app.use("/api/revenue", revenueRouter);
+    this.app.use("/api/attendees", attendeeRouter);
+    this.app.use("/api/overview", overviewRouter);
+    this.app.use("/api/topevents", topEventRoutes);
+    this.app.use("/api/transactions/status", transactionStatusRoutes);
+  
   }
 
   private errorHandling(): void {

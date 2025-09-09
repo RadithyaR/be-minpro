@@ -2,6 +2,12 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
+import revenueRoutes from "./routes/revenue.routes";
+import attendeeRoutes from "./routes/attendees.routes";
+import overviewRoutes from "./routes/overview.routes";
+import topEventRoutes from "./routes/topevents.routes";
+import transactionStatusRoutes from "./routes/transactionstatus.routes";
+import transactionManagementRoutes from "./routes/transactionmanagement.routes";
 
 dotenv.config();
 
@@ -16,6 +22,12 @@ app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 // routes
 app.use("/", authRoutes);
+app.use("/api/revenue", revenueRoutes);
+app.use("/api/attendees", attendeeRoutes);
+app.use("/api/overview", overviewRoutes);
+app.use("/api/topevents", topEventRoutes);
+app.use("/api/transactions/status", transactionStatusRoutes);
+app.use("/api/transaction_management", transactionManagementRoutes);
 
 app.get("/", (req, res) => {
   res.send("API running...");
