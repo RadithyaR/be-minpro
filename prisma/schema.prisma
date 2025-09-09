@@ -94,7 +94,7 @@ model Transaction {
   discountPoint   Int?  @default(0)
   finalAmount     Int                 // baseAmount - diskon total
   
-  voucherId      Int?   @unique       // Relasi ke Voucher
+  voucherId      Int?          
   voucher        Voucher?       @relation(fields: [voucherId], references: [id])
 
   points        Point[]
