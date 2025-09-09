@@ -58,7 +58,7 @@ export const getUserCoupon = async (req: Request, res: Response) => {
     });
 
     return res.json({
-      totalPoints: totalCoupon._sum.nominal || 0,
+      totalCoupon: totalCoupon._sum.nominal || 0,
       coupons,
     });
   } catch (error) {}
