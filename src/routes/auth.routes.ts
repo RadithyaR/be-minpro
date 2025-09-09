@@ -4,8 +4,12 @@ import { Router } from "express";
 import { register } from "../controllers/auth/register.controller";
 import { login } from "../controllers/auth/login.controller";
 import { updateProfile } from "../controllers/auth/profile.controller";
-import { getUserPointsAndCoupons } from "../controllers/auth/points-coupons.controller";
-import { forgotPassword, } from "../controllers/auth/forgot-password.controllers";
+import {
+  getUserCoupon,
+  getUserPoint,
+  getUserPointsAndCoupons,
+} from "../controllers/auth/points-coupons.controller";
+import { forgotPassword } from "../controllers/auth/forgot-password.controllers";
 import { resetPassword } from "../controllers/auth/reset-password.controllers";
 
 // Middleware
@@ -23,6 +27,8 @@ router.post("/reset-password", resetPassword);
 router.put("/profile", authMiddleware, updateProfile);
 
 // User Points & Coupons
-router.get("/points-coupons", authMiddleware, getUserPointsAndCoupons);
+router.get("/points-coupons", authMiddleware(), getUserPointsAndCoupons);
+router.get("/points", authMiddleware(), getUserPoint);
+router.get("/coupons", authMiddleware(), getUserCoupon);
 
 export default router;
