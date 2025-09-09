@@ -7,7 +7,7 @@ import attendeeRoutes from "./routes/attendees.routes";
 import overviewRoutes from "./routes/overview.routes";
 import topEventRoutes from "./routes/topevents.routes";
 import transactionStatusRoutes from "./routes/transactionstatus.routes";
-import transactionManagementRoutes from "./routes/transactionmanagement.routes";
+import eventRouter from "./routes/event.routes";
 
 dotenv.config();
 
@@ -27,7 +27,7 @@ app.use("/api/attendees", attendeeRoutes);
 app.use("/api/overview", overviewRoutes);
 app.use("/api/topevents", topEventRoutes);
 app.use("/api/transactions/status", transactionStatusRoutes);
-app.use("/api/transaction_management", transactionManagementRoutes);
+app.use("/api/event", eventRouter);
 
 app.get("/", (req, res) => {
   res.send("API running...");

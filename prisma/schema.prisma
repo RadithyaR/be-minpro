@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  // output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -15,174 +8,137 @@ datasource db {
 }
 
 model User {
-  id                   Int            @id @default(autoincrement())
-  email                String         @unique
-  password             String
-  fullName             String
-  profilePicture       String?        
-  phone                String?        
-  bio                  String?       
-  resetPasswordToken   String?       
-  resetPasswordExpiry  DateTime?        
-  verificationToken    String?
-  isVerified           Boolean        @default(false) 
-  
-  roleId               Int
-  role                 Role           @relation(fields: [roleId], references: [id])
-  points               Point[]
-  transactions         Transaction[]
-  vouchers             Voucher[]
-  coupons              Coupon[]
-  referrals            Referral[]
-  events               Event[]        @relation("UserEvents")
-  reviews              Review[]
-  
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @default(now()) @updatedAt()    
+  id                  Int           @id @default(autoincrement())
+  email               String        @unique
+  password            String
+  fullName            String
+  roleId              Int
+  createdAt           DateTime      @default(now())
+  bio                 String?
+  isVerified          Boolean       @default(false)
+  phone               String?
+  profilePicture      String?
+  resetPasswordExpiry DateTime?
+  resetPasswordToken  String?
+  updatedAt           DateTime      @default(now()) @updatedAt
+  verificationToken   String?
+  points              Point[]
+  coupons             Coupon[]
+  events              Event[]       @relation("UserEvents")
+  referrals           Referral?
+  reviews             Review[]
+  transactions        Transaction[]
+  role                Role          @relation(fields: [roleId], references: [id])
+  vouchers            Voucher[]
 
   @@map("users")
 }
 
 model Role {
-  id     Int    @id @default(autoincrement())
-  name   String
-  users  User[]
+  id    Int    @id @default(autoincrement())
+  name  String
+  users User[]
 
   @@map("roles")
 }
 
-enum LocationType {
-  online
-  offline
-}
 model Event {
-  id             Int            @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   userId         Int
-  user           User           @relation("UserEvents", fields: [userId], references: [id])
-  locationType   LocationType
-  address        String?
-  city           String?
-  link           String?
   name           String
   description    String
-  eventImage     String?        // path atau URL gambar event
+  eventImage     String?
   price          Int
   startDate      DateTime
   endDate        DateTime
   availableSeats Int
-  vouchers       Voucher[]
-  transactions   Transaction[]
+  createdAt      DateTime      @default(now())
+  address        String?
+  city           String?
+  link           String?
+  locationType   LocationType
+  user           User          @relation("UserEvents", fields: [userId], references: [id])
   reviews        Review[]
-  createdAt      DateTime       @default(now())
+  transactions   Transaction[]
+  vouchers       Voucher[]
 
   @@map("events")
 }
 
 model Transaction {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  user       User      @relation(fields: [userId], references: [id])
-
-  eventId    Int
-  event      Event     @relation(fields: [eventId], references: [id])
-
-  quantity   Int       @default(1)     // minimal 1 tiket
-  baseAmount Int                       // harga tiket × quantity
-
-  discountCoupon  Int?  @default(0)
-  discountVoucher Int?  @default(0)
-  discountPoint   Int?  @default(0)
-  finalAmount     Int                 // baseAmount - diskon total
-  
-  voucherId      Int?   @unique       // Relasi ke Voucher
-  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
-
-  points        Point[]
-  coupons       Coupon[]
-
-  paymentProof   String?              // path/url bukti bayar
-  statusId       Int
-  status         PaymentStatus @relation(fields: [statusId], references: [id])
-
-  createdAt DateTime  @default(now())
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  eventId         Int
+  quantity        Int           @default(1)
+  baseAmount      Int
+  discountCoupon  Int?          @default(0)
+  discountVoucher Int?          @default(0)
+  discountPoint   Int?          @default(0)
+  finalAmount     Int
+  voucherId       Int?
+  paymentProof    String?
+  statusId        Int
+  createdAt       DateTime      @default(now())
+  points          Point[]
+  coupons         Coupon[]
+  event           Event         @relation(fields: [eventId], references: [id])
+  status          PaymentStatus @relation(fields: [statusId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+  voucher         Voucher?      @relation(fields: [voucherId], references: [id])
 
   @@map("transactions")
-
 }
 
 model PaymentStatus {
-  id          Int           @id @default(autoincrement())
-  name        String        @unique
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
   transactions Transaction[]
-
-// PENDING -> transaksi udah dibuat, tapi user belum bayar atau belum diverifikasi.
-// PAID -> transaksi udah dibayar
-// FAILED -> transaksi gagal
-// CANCELLED -> transaksi dibatalkan
-// REFUNDED -> transaksi sudah direfund
-// EXPIRED -> transaksi sudah kadaluarsa
 
   @@map("payment_status")
 }
 
 model Voucher {
-  id        Int     @id @default(autoincrement())
-  userId    Int
-  eventId   Int
-  user      User    @relation(fields: [userId], references: [id])
-  event     Event   @relation(fields: [eventId], references: [id])
-
-  nominal   Int
-  isUsed    Boolean @default(false)
-  quota     Int     @default(1)   // jumlah maksimal voucher ini bisa dipakai
-
+  id           Int           @id @default(autoincrement())
+  userId       Int
+  eventId      Int
+  nominal      Int
+  isUsed       Boolean       @default(false)
+  quota        Int           @default(1)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   transactions Transaction[]
+  event        Event         @relation(fields: [eventId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  @@unique([userId, eventId])
   @@map("vouchers")
-  @@unique([userId, eventId]) // biar 1 user 1 voucher per event
 }
 
 model Point {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id])
-
-  transactionId Int? 
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  transactionId Int?
+  amount        Int
+  type          PointType
+  source        String?
+  expiredAt     DateTime?
+  remaining     Int?
+  createdAt     DateTime     @default(now())
+  description   String?
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
-
-  amount      Int
-  type        PointType
-  source      String?
-  expiredAt   DateTime?
-  remaining   Int?
-  description String?
-  createdAt   DateTime  @default(now())
-}
-
-enum PointType {
-  EARNED
-  USED
-  EXPIRED
-  BONUS
+  user          User         @relation(fields: [userId], references: [id])
 }
 
 model Coupon {
-  id             Int          @id @default(autoincrement())
-  userId         Int
-  user           User         @relation(fields: [userId], references: [id])
-
-  nominal        Int          // besar diskon (misal 20000)
-  expiredAt      DateTime     // kadaluarsa
-  isUsed         Boolean      @default(false)
-
-  // optional relasi ke transaksi biar ketahuan dipakai dimana
-  transaction    Transaction? @relation(fields: [transactionId], references: [id])
-  transactionId  Int?
-
-  createdAt      DateTime     @default(now())
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  nominal       Int
+  expiredAt     DateTime
+  isUsed        Boolean      @default(false)
+  transactionId Int?
+  createdAt     DateTime     @default(now())
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
 
   @@map("coupons")
 }
@@ -190,10 +146,9 @@ model Coupon {
 model Referral {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id])
-
-  code      String   @unique // kode referral unik untuk tiap user
+  code      String   @unique
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("referrals")
 }
@@ -201,12 +156,24 @@ model Referral {
 model Review {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
   eventId   Int
-  event     Event    @relation(fields: [eventId], references: [id])
   rating    Int
   comment   String
   createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("reviews")
+}
+
+enum LocationType {
+  online
+  offline
+}
+
+enum PointType {
+  EARNED
+  USED
+  EXPIRED
+  BONUS
 }
