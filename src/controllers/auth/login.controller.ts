@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../../lib/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { token } from "morgan";
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -20,8 +21,16 @@ export const login = async (req: Request, res: Response) => {
     // Cek password
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid Password" });
     }
+
+    // Cari eventId (kalau ada)
+    const events = await prisma.event.findMany({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    const eventIds = events.map(e => e.id); 
 
     // Role aktif default dari DB
     const activeRole = user.role.name as "customer" | "event_organizer";
@@ -58,6 +67,7 @@ export const login = async (req: Request, res: Response) => {
         role: activeRole,
       },
       accounts,
+      eventId : eventIds.length > 0 ? eventIds : null,
     });
   } catch (err) {
     console.error("Login error:", err);
