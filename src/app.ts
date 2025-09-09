@@ -19,6 +19,7 @@ import overviewRouter from "./routes/overview.routes";
 import topEventRoutes from "./routes/topevents.routes";
 import transactionStatusRoutes from "./routes/transactionstatus.routes";
 
+
 export default class App {
   private app: Application;
 
@@ -49,7 +50,8 @@ export default class App {
     this.app.use("/api/attendees", attendeeRouter);
     this.app.use("/api/overview", overviewRouter);
     this.app.use("/api/topevents", topEventRoutes);
-    this.app.use("/api/transactions", transactionStatusRoutes);
+    this.app.use("/api/transactions/status", transactionStatusRoutes);
+  
   }
 
   private errorHandling(): void {
