@@ -42,6 +42,11 @@ model Role {
   @@map("roles")
 }
 
+enum StatusEvent {
+  ACTIVE   // 1 aktif
+  INACTIVE // 2 non aktif
+}
+
 model Event {
   id             Int           @id @default(autoincrement())
   userId         Int
@@ -61,6 +66,7 @@ model Event {
   reviews        Review[]
   transactions   Transaction[]
   vouchers       Voucher[]
+  statusEvent    StatusEvent    @default(ACTIVE) // 1 aktif, 2 non aktif
 
   @@map("events")
 }

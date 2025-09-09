@@ -109,6 +109,7 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
     const events = await prisma.event.findMany({
       where: {
         userId: userId, // Filter by organizer's user ID
+        statusEvent: "ACTIVE", // Hanya ambil event yang aktif
       },
       include: {
         user: true,
@@ -292,14 +293,27 @@ export const updateEvent = async (req: Request, res: Response) => {
 export const deleteEvent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const event = await prisma.event.findUnique({ where: { id: Number(id) } });
-    if (!event) return res.status(404).json({ error: "Event not found" });
 
-    await prisma.event.delete({ where: { id: Number(id) } });
+    const event = await prisma.event.findUnique({
+      where: { id: Number(id) },
+    });
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
-    return res.json({ message: "Event deleted" });
+    // Soft delete: ubah statusEvent ke INACTIVE
+    const updatedEvent = await prisma.event.update({
+      where: { id: Number(id) },
+      data: { statusEvent: "INACTIVE" },
+    });
+
+    return res.json({
+      message: "Event berhasil dinonaktifkan (soft delete).",
+      event: updatedEvent,
+    });
   } catch (err) {
     console.error("Delete event error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
