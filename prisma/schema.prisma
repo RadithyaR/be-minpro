@@ -66,25 +66,32 @@ model Event {
 }
 
 model Transaction {
-  id              Int           @id @default(autoincrement())
-  userId          Int
-  eventId         Int
-  quantity        Int           @default(1)
-  baseAmount      Int
-  discountCoupon  Int?          @default(0)
-  discountVoucher Int?          @default(0)
-  discountPoint   Int?          @default(0)
-  finalAmount     Int
-  voucherId       Int?
-  paymentProof    String?
-  statusId        Int
-  createdAt       DateTime      @default(now())
-  points          Point[]
-  coupons         Coupon[]
-  event           Event         @relation(fields: [eventId], references: [id])
-  status          PaymentStatus @relation(fields: [statusId], references: [id])
-  user            User          @relation(fields: [userId], references: [id])
-  voucher         Voucher?      @relation(fields: [voucherId], references: [id])
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+
+  eventId    Int
+  event      Event     @relation(fields: [eventId], references: [id])
+
+  quantity   Int       @default(1)     // minimal 1 tiket
+  baseAmount Int                       // harga tiket × quantity
+
+  discountCoupon  Int?  @default(0)
+  discountVoucher Int?  @default(0)
+  discountPoint   Int?  @default(0)
+  finalAmount     Int                 // baseAmount - diskon total
+  
+  voucherId      Int?          
+  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
+
+  points        Point[]
+  coupons       Coupon[]
+
+  paymentProof   String?              // path/url bukti bayar
+  statusId       Int
+  status         PaymentStatus @relation(fields: [statusId], references: [id])
+
+  createdAt DateTime  @default(now())
 
   @@map("transactions")
 }

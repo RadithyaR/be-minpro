@@ -155,9 +155,9 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
           totalTransactions,
           completedTransactions,
           totalRevenue,
-          averageRating: Math.round(averageRating * 10) / 10, // 1 decimal place
+          averageRating: Math.round(averageRating * 10) / 10,
           availableSeats: event.availableSeats,
-          totalSeats: event.availableSeats + totalTransactions, // assuming initial quota
+          totalSeats: event.availableSeats + totalTransactions,
         },
       };
     });

@@ -184,12 +184,7 @@ export const getVoucherById = async (req: Request, res: Response) => {
 // get voucher pada event
 export const getEventVoucher = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user!.userId;
     const { eventId } = req.params;
-
-    if (req.user!.role !== "event_organizer") {
-      return res.status(403).json({ error: "Access denied. Organizer only." });
-    }
 
     // Validasi event ownership
     const event = await prisma.event.findUnique({
@@ -198,10 +193,6 @@ export const getEventVoucher = async (req: Request, res: Response) => {
 
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
-    }
-
-    if (event.userId !== userId) {
-      return res.status(403).json({ error: "Access denied. Not your event." });
     }
 
     ///get event

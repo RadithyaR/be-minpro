@@ -21,11 +21,7 @@ const router = Router();
 router.post("/", authMiddleware(["event_organizer"]), createVoucher);
 router.get("/", authMiddleware(), getUserVoucher);
 router.get("/:id", authMiddleware(), getVoucherById);
-router.get(
-  "/event/:eventId",
-  authMiddleware(["event_organizer"]),
-  getEventVoucher
-);
+router.get("/event/:eventId", getEventVoucher);
 router.put("/:id", authMiddleware(["event_organizer"]), updateVoucher);
 router.delete("/:id", authMiddleware(["event_organizer"]), deleteVoucher);
 router.post("/validate", authMiddleware(["customer"]), validateVoucher);
