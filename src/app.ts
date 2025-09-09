@@ -51,6 +51,7 @@ export default class App {
     this.app.use("/api/overview", overviewRouter);
     this.app.use("/api/topevents", topEventRoutes);
     this.app.use("/api/transactions/status", transactionStatusRoutes);
+    this.app.use("/api/event", eventRouter);
   
   }
 

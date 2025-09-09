@@ -19,6 +19,7 @@ declare global {
 export const authMiddleware = (roles: string[] = []): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.split(" ")[1];
+    const role = req.headers.role; // Ambil role dari header
     if (!token) return res.status(401).json({ error: "No token provided" });
 
     try {
@@ -30,8 +31,8 @@ export const authMiddleware = (roles: string[] = []): RequestHandler => {
       req.user = decoded;
 
       // kalau roles ada isinya, cek role user
-      if (roles.length > 0 && !roles.includes(decoded.role)) {
-        return res.status(403).json({ error: "Forbidden: insufficient role" });
+      if (roles != role) {
+        return res.status(403).json({ error: "Forbidden: insufficient role"});
       }
 
       next();

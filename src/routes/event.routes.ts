@@ -6,6 +6,7 @@ import {
   updateEvent,
   deleteEvent,
   getEventsByOrganizer,
+  upload,
 } from "../controllers/event/event.controller";
 
 import {
@@ -37,12 +38,12 @@ router.post(
   createEvent
 );
 router.get(
-  "/organizer/my-events",
+  "/getEventsByOrganizer",
   authMiddleware(["event_organizer"]),
   getEventsByOrganizer
 );
-router.put("/events/:id", authMiddleware(["event_organizer"]), updateEvent);
-router.delete("/events/:id", authMiddleware(["event_organizer"]), deleteEvent);
+router.put("/updateEvent/:id", authMiddleware(["event_organizer"]), upload.single("eventImage"), updateEvent);
+router.delete("/deleteEvent/:id", authMiddleware(["event_organizer"]), deleteEvent);
 
 // // Dashboard & stats
 router.get(
@@ -54,7 +55,7 @@ router.get(
   "/dashboard/statistics",
   authMiddleware(["event_organizer"]),
   getEventStatistics
-);
+);  
 
 // // Attendees
 router.get(
@@ -62,5 +63,6 @@ router.get(
   authMiddleware(["event_organizer"]),
   getAttendees
 );
+
 
 export default router;
