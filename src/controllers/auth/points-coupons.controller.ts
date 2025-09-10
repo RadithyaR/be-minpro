@@ -28,6 +28,7 @@ export const getUserPoint = async (req: Request, res: Response) => {
       where: { userId: userId },
       _sum: {
         amount: true, // Ganti 'points' dengan nama field yang sesuai di tabel Anda
+        remaining: true,
       },
     });
 
@@ -36,7 +37,7 @@ export const getUserPoint = async (req: Request, res: Response) => {
     });
 
     return res.json({
-      totalPoints: totalPoints._sum.amount || 0,
+      totalPoints: totalPoints._sum.remaining || 0,
       points,
     });
   } catch (error) {}

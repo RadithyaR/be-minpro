@@ -14,11 +14,11 @@ const transporter = nodemailer.createTransport({
 // Menghitung diskon
 const calculateDiscounts = (
   baseAmount: number,
-  pointsAmount: number,
+  amount: number,
   couponNominal: number,
   voucherNominal: number
 ) => {
-  const pointsDiscount = Math.min(pointsAmount, baseAmount);
+  const pointsDiscount = Math.min(amount, baseAmount);
   const remainingAfterPoints = baseAmount - pointsDiscount;
 
   const couponDiscount = Math.min(couponNominal, remainingAfterPoints);
@@ -33,12 +33,14 @@ const calculateDiscounts = (
     pointsDiscount,
     couponDiscount,
     voucherDiscount,
-    finalAmount,
+    finalAmount: Math.max(0, finalAmount),
   };
 };
 
 // CREATE Transaction (Customer only)
 export const createTransaction = async (req: Request, res: Response) => {
+  let transactionResult: any = null;
+
   try {
     const userId = (req as any).user.userId;
     const { eventId, quantity, pointsToUse, couponNominal, voucherId } =
@@ -76,18 +78,14 @@ export const createTransaction = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Not enough available seats" });
     }
 
-    // get user point
+    // Get user points dengan filter yang benar
     const userPoints = await prisma.point.findMany({
       where: {
         userId: userId,
-        type: "EARNED",
         expiredAt: { gt: now },
-        OR: [
-          { remaining: { gt: 0 } },
-          { remaining: null }, // point yang belum pernah digunakan
-        ],
+        OR: [{ remaining: { gt: 0 } }, { remaining: null }],
       },
-      orderBy: { expiredAt: "asc" }, // Gunakan yang mau expired duluan
+      orderBy: { expiredAt: "asc" },
     });
 
     const totalAvailablePoints = userPoints.reduce(
@@ -96,12 +94,14 @@ export const createTransaction = async (req: Request, res: Response) => {
       0
     );
 
+    console.log("TOTAL POINT:", userPoints);
+
     // Validasi points
     if (pointsToUse > totalAvailablePoints) {
       return res.status(400).json({ error: "Not enough points" });
     }
 
-    // Get yser coupon
+    // Get user coupons dengan filter yang benar
     const userCoupons = await prisma.coupon.findMany({
       where: {
         userId: userId,
@@ -127,13 +127,12 @@ export const createTransaction = async (req: Request, res: Response) => {
     if (voucherId) {
       voucher = await prisma.voucher.findUnique({
         where: { id: Number(voucherId) },
-        include: { event: true },
       });
 
       if (
         !voucher ||
         voucher.userId !== userId ||
-        voucher.eventId !== eventId
+        Number(voucher.eventId) !== Number(eventId)
       ) {
         return res.status(400).json({ error: "Invalid voucher" });
       }
@@ -145,7 +144,7 @@ export const createTransaction = async (req: Request, res: Response) => {
       voucherNominal = voucher.nominal;
     }
 
-    // menghitung amouit amounts
+    // Hitung amounts
     const baseAmount = event.price * quantity;
     const { pointsDiscount, couponDiscount, voucherDiscount, finalAmount } =
       calculateDiscounts(
@@ -155,14 +154,31 @@ export const createTransaction = async (req: Request, res: Response) => {
         voucherNominal
       );
 
-    const transaction = await prisma.$transaction(async (prisma) => {
-      // mengurangi available seats
-      await prisma.event.update({
-        where: { id: eventId },
+    // Gunakan Prisma transaction untuk atomic operations
+    transactionResult = await prisma.$transaction(async (tx) => {
+      // 1. Kurangi available seats
+      const updatedEvent = await tx.event.update({
+        where: { id: Number(eventId) },
         data: { availableSeats: { decrement: quantity } },
       });
 
-      // update point
+      // 2. Create transaction terlebih dahulu
+      const transaction = await tx.transaction.create({
+        data: {
+          userId: userId,
+          eventId: Number(eventId),
+          quantity: quantity,
+          baseAmount: baseAmount,
+          discountPoint: pointsDiscount,
+          discountCoupon: couponDiscount,
+          discountVoucher: voucherDiscount,
+          finalAmount: finalAmount,
+          voucherId: voucherId ? Number(voucherId) : null,
+          statusId: 1, // PENDING
+        },
+      });
+
+      // 3. Update points jika digunakan
       if (pointsToUse > 0) {
         let pointsRemaining = pointsToUse;
 
@@ -176,11 +192,11 @@ export const createTransaction = async (req: Request, res: Response) => {
             availableInThisPoint
           );
 
-          await prisma.point.update({
+          await tx.point.update({
             where: { id: point.id },
             data: {
               remaining: availableInThisPoint - pointsToUseFromThis,
-              transactionId: transaction.id, // akan diconnect setelah transaction dibuat
+              transactionId: transaction.id,
             },
           });
 
@@ -188,7 +204,7 @@ export const createTransaction = async (req: Request, res: Response) => {
         }
       }
 
-      // Gunakan coupons
+      // 4. Update coupons jika digunakan
       if (couponNominal > 0) {
         let couponRemaining = couponNominal;
 
@@ -197,10 +213,10 @@ export const createTransaction = async (req: Request, res: Response) => {
 
           const couponValueToUse = Math.min(couponRemaining, coupon.nominal);
 
-          await prisma.coupon.update({
+          await tx.coupon.update({
             where: { id: coupon.id },
             data: {
-              isUsed: couponValueToUse === coupon.nominal, // marked as used jika habis
+              isUsed: couponValueToUse === coupon.nominal,
               nominal: coupon.nominal - couponValueToUse,
               transactionId: transaction.id,
             },
@@ -210,9 +226,9 @@ export const createTransaction = async (req: Request, res: Response) => {
         }
       }
 
-      // Gunakan voucher
+      // 5. Update voucher jika digunakan
       if (voucherId) {
-        await prisma.voucher.update({
+        await tx.voucher.update({
           where: { id: Number(voucherId) },
           data: {
             quota: { decrement: 1 },
@@ -221,20 +237,9 @@ export const createTransaction = async (req: Request, res: Response) => {
         });
       }
 
-      // Create transaction
-      return await prisma.transaction.create({
-        data: {
-          userId: userId,
-          eventId: eventId,
-          quantity: quantity,
-          baseAmount: baseAmount,
-          discountPoint: pointsDiscount,
-          discountCoupon: couponDiscount,
-          discountVoucher: voucherDiscount,
-          finalAmount: finalAmount,
-          voucherId: voucherId ? Number(voucherId) : null,
-          statusId: 1, // PENDING
-        },
+      // Return transaction dengan relasi
+      return await tx.transaction.findUnique({
+        where: { id: transaction.id },
         include: {
           event: true,
           voucher: true,
@@ -244,26 +249,30 @@ export const createTransaction = async (req: Request, res: Response) => {
       });
     });
 
-    //scheduler
     // Set timeout untuk expired transaction (2 jam)
     setTimeout(async () => {
-      const freshTransaction = await prisma.transaction.findUnique({
-        where: { id: transaction.id },
-        include: { status: true },
-      });
+      try {
+        const freshTransaction = await prisma.transaction.findUnique({
+          where: { id: transactionResult.id },
+          include: { status: true },
+        });
 
-      if (freshTransaction && freshTransaction.status.name === "PENDING") {
-        await cancelTransaction(transaction.id, "EXPIRED");
+        if (freshTransaction && freshTransaction.status.name === "PENDING") {
+          await cancelTransaction(transactionResult.id, "EXPIRED");
+        }
+      } catch (error) {
+        console.error("Error in transaction expiration scheduler:", error);
       }
     }, 2 * 60 * 60 * 1000);
 
     res.status(201).json({
       message: "Transaction created successfully",
-      data: transaction,
+      data: transactionResult,
       paymentDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000),
     });
   } catch (error) {
     console.error("Create transaction error:", error);
+
     res.status(500).json({ error: "Failed to create transaction" });
   }
 };
@@ -333,91 +342,68 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
 };
 
 // EXPIRE Transaction (auto)
-export const cancelTransaction = async (
-  transactionId: number,
-  reason: "EXPIRED" | "CANCELLED" | "FAILED"
-) => {
-  return await prisma.$transaction(async (prisma) => {
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId },
-      include: {
-        event: true,
-        points: true,
-        coupons: true,
-        voucher: true,
-      },
-    });
-
-    if (!transaction) throw new Error("Transaction not found");
-
-    // mengembalikan available seats
-    await prisma.event.update({
-      where: { id: transaction.eventId },
-      data: { availableSeats: { increment: transaction.quantity } },
-    });
-
-    // mengembalikan points
-    if (transaction.discountPoint !== null && transaction.discountPoint > 0) {
-      if (transaction.discountPoint > 0) {
-        const usedPoints = await prisma.point.findMany({
-          where: { transactionId: transactionId },
-        });
-
-        for (const point of usedPoints) {
-          await prisma.point.update({
-            where: { id: point.id },
-            data: {
-              remaining: { increment: point.amount }, // Kembalikan remaining points
-              transactionId: null, // Putus relation dengan transaction
-            },
-          });
-        }
-      }
-    }
-
-    //mengembalikan coupons
-    if (transaction.discountCoupon !== null && transaction.discountCoupon > 0) {
-      if (transaction.discountCoupon > 0) {
-        const usedCoupons = await prisma.coupon.findMany({
-          where: { transactionId: transactionId },
-        });
-
-        for (const coupon of usedCoupons) {
-          await prisma.coupon.update({
-            where: { id: coupon.id },
-            data: {
-              isUsed: false,
-              nominal: { increment: coupon.nominal }, // Kembalikan nominal
-              transactionId: null,
-            },
-          });
-        }
-      }
-    }
-
-    //mengembalikann voucher
-    if (transaction.voucherId) {
-      await prisma.voucher.update({
-        where: { id: transaction.voucherId },
-        data: {
-          quota: { increment: 1 },
-          isUsed: false,
-        },
+const cancelTransaction = async (transactionId: number, reason: string) => {
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Get transaction details
+      const transaction = await tx.transaction.findUnique({
+        where: { id: transactionId },
+        include: { points: true, coupons: true, voucher: true, event: true },
       });
-    }
 
-    //Update transaction status
-    const statusId = reason === "EXPIRED" ? 6 : reason === "CANCELLED" ? 4 : 3;
+      if (!transaction) return;
 
-    return await prisma.transaction.update({
-      where: { id: transactionId },
-      data: { statusId: statusId },
-      include: {
-        event: true,
-        status: true,
-      },
+      // Rollback event seats
+      await tx.event.update({
+        where: { id: transaction.eventId },
+        data: { availableSeats: { increment: transaction.quantity } },
+      });
+
+      //Rollback points
+      for (const point of transaction.points) {
+        await tx.point.update({
+          where: { id: point.id },
+          data: {
+            remaining:
+              (point.remaining || 0) +
+              (point.amount - (point.remaining || point.amount)),
+            transactionId: null,
+          },
+        });
+      }
+
+      //Rollback coupons
+      for (const coupon of transaction.coupons) {
+        await tx.coupon.update({
+          where: { id: coupon.id },
+          data: {
+            isUsed: false,
+            nominal: coupon.nominal + (coupon.nominal - coupon.nominal),
+            transactionId: null,
+          },
+        });
+      }
+
+      //Rollback voucher
+      if (transaction.voucherId) {
+        await tx.voucher.update({
+          where: { id: transaction.voucherId },
+          data: {
+            quota: { increment: 1 },
+            isUsed: false,
+          },
+        });
+      }
+
+      // Update transaction
+      await tx.transaction.update({
+        where: { id: transactionId },
+        data: { statusId: 3 }, // CANCELLED
+      });
     });
-  });
+  } catch (error) {
+    console.error("Error cancelling transaction:", error);
+  }
 };
 
 // GET User Transactions (Customer only)
