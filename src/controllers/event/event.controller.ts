@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import prisma from "../../lib/prisma";
 import { Event } from "@prisma/client";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 // // CREATE Event (Organizer only)
 export const createEvent = async (req: Request, res: Response) => {
@@ -106,6 +109,7 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
     const events = await prisma.event.findMany({
       where: {
         userId: userId, // Filter by organizer's user ID
+        statusEvent: "ACTIVE", // Hanya ambil event yang aktif
       },
       include: {
         user: true,
@@ -165,7 +169,7 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("Get organizer events error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error why" });
   }
 };
 
@@ -207,39 +211,109 @@ export const getEventById = async (req: Request, res: Response) => {
 };
 
 // // UPDATE event (Organizer only)
+// Konfigurasi multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/event-images"); // folder penyimpanan
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + path.extname(file.originalname);
+    cb(null, "event-" + uniqueSuffix);
+  },
+});
+
+export const upload = multer({ storage });
+
 export const updateEvent = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const data = req.body;
+    const eventId = Number(req.params.id);
+    if (isNaN(eventId)) {
+      return res.status(400).json({ error: "Invalid event ID" });
+    }
 
-    const event = await prisma.event.findUnique({ where: { id: Number(id) } });
+    const existing = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!existing) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
-    if (!event) return res.status(404).json({ error: "Event not found" });
+    // Build payload with proper casting/fallbacks
+    const data: any = {
+      name: req.body.name ?? existing.name,
+      description: req.body.description ?? existing.description,
+      locationType: req.body.locationType ?? existing.locationType,
+      address: req.body.address ?? existing.address,
+      city: req.body.city ?? existing.city,
+      link: req.body.link ?? existing.link,
+      price: req.body.price !== undefined ? Number(req.body.price) : existing.price,
+      availableSeats:
+        req.body.availableSeats !== undefined
+          ? Number(req.body.availableSeats)
+          : existing.availableSeats,
+      startDate:
+        req.body.startDate ? new Date(req.body.startDate) : existing.startDate,
+      endDate: req.body.endDate ? new Date(req.body.endDate) : existing.endDate,
+    };
 
-    const updatedEvent = await prisma.event.update({
-      where: { id: Number(id) },
+    // If a new file is uploaded -> safe-delete old image and set new path
+    if (req.file) {
+      // Delete old file if it existed (but don't crash if missing)
+      if (existing.eventImage) {
+        try {
+          // existing.eventImage is like "event-images/evt-123.jpg"
+          const oldAbsPath = path.join(process.cwd(), "public", existing.eventImage);
+          if (fs.existsSync(oldAbsPath)) {
+            await fs.promises.unlink(oldAbsPath);
+          }
+        } catch (delErr) {
+          // Log only, never block the update
+          console.warn("⚠️ Failed to delete old image:", delErr);
+        }
+      }
+
+      // Save new relative path in DB
+      data.eventImage = `event-images/${req.file.filename}`;
+    }
+
+    const updated = await prisma.event.update({
+      where: { id: eventId },
       data,
     });
 
-    return res.json({ message: "Event updated", event: updatedEvent });
+    return res.json({ message: "Event updated", event: updated });
   } catch (err) {
     console.error("Update event error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res
+      .status(500)
+      .json({ error: "Internal server error", details: String(err) });
   }
 };
+
 
 // // DELETE event (Organizer only)
 export const deleteEvent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const event = await prisma.event.findUnique({ where: { id: Number(id) } });
-    if (!event) return res.status(404).json({ error: "Event not found" });
 
-    await prisma.event.delete({ where: { id: Number(id) } });
+    const event = await prisma.event.findUnique({
+      where: { id: Number(id) },
+    });
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
 
-    return res.json({ message: "Event deleted" });
+    // Soft delete: ubah statusEvent ke INACTIVE
+    const updatedEvent = await prisma.event.update({
+      where: { id: Number(id) },
+      data: { statusEvent: "INACTIVE" },
+    });
+
+    return res.json({
+      message: "Event berhasil dinonaktifkan (soft delete).",
+      event: updatedEvent,
+    });
   } catch (err) {
     console.error("Delete event error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
