@@ -154,15 +154,14 @@ export const createTransaction = async (req: Request, res: Response) => {
         voucherNominal
       );
 
-    // Gunakan Prisma transaction untuk atomic operations
     transactionResult = await prisma.$transaction(async (tx) => {
-      // 1. Kurangi available seats
+      //Kurangi available seats
       const updatedEvent = await tx.event.update({
         where: { id: Number(eventId) },
         data: { availableSeats: { decrement: quantity } },
       });
 
-      // 2. Create transaction terlebih dahulu
+      //Create transaction terlebih dahulu
       const transaction = await tx.transaction.create({
         data: {
           userId: userId,
@@ -178,7 +177,7 @@ export const createTransaction = async (req: Request, res: Response) => {
         },
       });
 
-      // 3. Update points jika digunakan
+      //Update points jika digunakan
       if (pointsToUse > 0) {
         let pointsRemaining = pointsToUse;
 
@@ -204,7 +203,7 @@ export const createTransaction = async (req: Request, res: Response) => {
         }
       }
 
-      // 4. Update coupons jika digunakan
+      //Update coupons jika digunakan
       if (couponNominal > 0) {
         let couponRemaining = couponNominal;
 
@@ -226,7 +225,7 @@ export const createTransaction = async (req: Request, res: Response) => {
         }
       }
 
-      // 5. Update voucher jika digunakan
+      //Update voucher jika digunakan
       if (voucherId) {
         await tx.voucher.update({
           where: { id: Number(voucherId) },
@@ -250,20 +249,6 @@ export const createTransaction = async (req: Request, res: Response) => {
     });
 
     // Set timeout untuk expired transaction (2 jam)
-    setTimeout(async () => {
-      try {
-        const freshTransaction = await prisma.transaction.findUnique({
-          where: { id: transactionResult.id },
-          include: { status: true },
-        });
-
-        if (freshTransaction && freshTransaction.status.name === "PENDING") {
-          await cancelTransaction(transactionResult.id, "EXPIRED");
-        }
-      } catch (error) {
-        console.error("Error in transaction expiration scheduler:", error);
-      }
-    }, 2 * 60 * 60 * 1000);
 
     res.status(201).json({
       message: "Transaction created successfully",
@@ -320,16 +305,6 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
     });
 
     // Set timeout untuk auto cancel jika admin tidak respon (3 hari)
-    setTimeout(async () => {
-      const freshTransaction = await prisma.transaction.findUnique({
-        where: { id: updatedTransaction.id },
-        include: { status: true },
-      });
-
-      if (freshTransaction && freshTransaction.status.name === "PAID") {
-        await cancelTransaction(transaction.id, "CANCELLED");
-      }
-    }, 3 * 24 * 60 * 60 * 1000); // 3 hari
 
     res.json({
       message: "Payment proof uploaded successfully",
@@ -342,7 +317,7 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
 };
 
 // EXPIRE Transaction (auto)
-const cancelTransaction = async (transactionId: number, reason: string) => {
+export const cancelTransaction = async (transactionId: number) => {
   try {
     await prisma.$transaction(async (tx) => {
       // Get transaction details
