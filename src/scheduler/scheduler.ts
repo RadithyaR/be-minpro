@@ -4,7 +4,7 @@ import { cancelTransaction } from "../controllers/event/transaction.controller";
 
 const scheduleTask = () => {
   try {
-    const scheduleRule = "0 * * * *"; // execute every 60 minutes (at minute 0 of every hour)
+    const scheduleRule = "*/30 * * * *"; // execute every 30 minutes
 
     cron.schedule(scheduleRule, async () => {
       // code yang di eksekusi
