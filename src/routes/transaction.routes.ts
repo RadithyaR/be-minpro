@@ -16,7 +16,11 @@ const router = Router();
 
 router.post("/", authMiddleware(["customer"]), createTransaction);
 router.get("/", authMiddleware(["customer"]), getUserTransactions);
-router.get("/:id", authMiddleware(["customer"]), getTransactionById);
+router.get(
+  "/:id",
+  authMiddleware(["customer", "event_organizer"]),
+  getTransactionById
+);
 router.post(
   "/:id/payment",
   authMiddleware(["customer"]),

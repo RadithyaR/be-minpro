@@ -5,7 +5,6 @@ import morgan from "morgan";
 // routes
 import authRouter from "./routes/auth.routes";
 
-
 // import userRouter from "./routes/user.routes";
 import eventRouter from "./routes/event.routes";
 import voucherRouter from "./routes/voucher.routes";
@@ -18,7 +17,7 @@ import attendeeRouter from "./routes/attendees.routes";
 import overviewRouter from "./routes/overview.routes";
 import topEventRoutes from "./routes/topevents.routes";
 import transactionStatusRoutes from "./routes/transactionstatus.routes";
-
+import scheduleTask from "./scheduler/scheduler";
 
 export default class App {
   private app: Application;
@@ -28,6 +27,7 @@ export default class App {
 
     this.configure();
     this.routes();
+    this.initialScheduler();
     this.errorHandling();
   }
 
@@ -52,7 +52,6 @@ export default class App {
     this.app.use("/api/topevents", topEventRoutes);
     this.app.use("/api/transactions/status", transactionStatusRoutes);
     this.app.use("/api/event", eventRouter);
-  
   }
 
   private errorHandling(): void {
@@ -73,6 +72,10 @@ export default class App {
         res.status(500).json({ error: "Internal server error" });
       }
     );
+  }
+
+  private initialScheduler(): void {
+    scheduleTask();
   }
 
   public start(port: number = 8000): void {
