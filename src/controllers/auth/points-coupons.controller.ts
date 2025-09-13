@@ -27,7 +27,7 @@ export const getUserPoint = async (req: Request, res: Response) => {
     const totalPoints = await prisma.point.aggregate({
       where: { userId: userId },
       _sum: {
-        amount: true, // Ganti 'points' dengan nama field yang sesuai di tabel Anda
+        amount: true,
         remaining: true,
       },
     });
@@ -50,7 +50,7 @@ export const getUserCoupon = async (req: Request, res: Response) => {
     const totalCoupon = await prisma.coupon.aggregate({
       where: { userId: userId },
       _sum: {
-        nominal: true, // Ganti 'points' dengan nama field yang sesuai di tabel Anda
+        nominal: true,
       },
     });
 
