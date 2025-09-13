@@ -5,24 +5,31 @@ import { singleFile } from "../utils/uploader";
 import {
   acceptTransaction,
   createTransaction,
+  getTransactions,
   getEventTransactions,
   getTransactionById,
   getUserTransactions,
   rejectTransaction,
   uploadPaymentProof,
+  approveTransaction,
+  // refundTransaction,
 } from "../controllers/event/transaction.controller";
 
 const router = Router();
 
 router.post("/", authMiddleware(["customer"]), createTransaction);
-router.get("/", authMiddleware(["customer"]), getUserTransactions);
-router.get("/:id", authMiddleware(["customer"]), getTransactionById);
+router.get("/", authMiddleware(["customer", "event_organizer"]), getUserTransactions);
+router.get("/", authMiddleware(["customer", "event_organizer"]), getTransactions);
+router.get("/:id", authMiddleware(["customer", "event_organizer"]), getTransactionById);
 router.post(
   "/:id/payment",
   authMiddleware(["customer"]),
   singleFile("pp", "payment-proof", "paymentProof"),
   uploadPaymentProof
 );
+
+router.patch("/:id/approve", authMiddleware(["customer", "event_organizer"]), approveTransaction);
+
 
 router.get(
   "/event/:eventId",
@@ -39,5 +46,10 @@ router.patch(
   authMiddleware(["event_organizer"]),
   rejectTransaction
 );
+// router.patch(
+//   "/:id/refund",
+//   authMiddleware(["event_organizer"]),
+//   refundTransaction
+// );
 
 export default router;

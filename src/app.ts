@@ -18,6 +18,8 @@ import attendeeRouter from "./routes/attendees.routes";
 import overviewRouter from "./routes/overview.routes";
 import topEventRoutes from "./routes/topevents.routes";
 import transactionStatusRoutes from "./routes/transactionstatus.routes";
+import profileRouter from "./routes/profile.routes";
+
 
 
 export default class App {
@@ -41,7 +43,6 @@ export default class App {
 
   private routes(): void {
     this.app.use("/auth", authRouter);
-    // this.app.use("/users", userRoutes);
     this.app.use("/", eventRouter);
     this.app.use("/voucher", voucherRouter);
     this.app.use("/transaction", transactionRouter);
@@ -52,7 +53,9 @@ export default class App {
     this.app.use("/api/topevents", topEventRoutes);
     this.app.use("/api/transactions/status", transactionStatusRoutes);
     this.app.use("/api/event", eventRouter);
-  
+    this.app.use("/api/transactions", transactionRouter);
+    this.app.use("/api/profile", profileRouter);
+
   }
 
   private errorHandling(): void {

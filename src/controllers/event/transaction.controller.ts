@@ -332,6 +332,26 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
   }
 };
 
+// APPROVE transaction
+export const approveTransaction = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const transaction = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: {
+        status: {
+          connect: { id: 2 }, // Set status to PAID
+        },
+      },
+    });
+
+    res.json({ message: "Transaction approved", transaction });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to approve transaction" });
+  }
+};
+
 // EXPIRE Transaction (auto)
 export const cancelTransaction = async (
   transactionId: number,
@@ -424,24 +444,50 @@ export const cancelTransaction = async (
 export const getUserTransactions = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;
+    const role = (req as any).user.role;
 
-    const transactions = await prisma.transaction.findMany({
-      where: { userId: userId },
-      include: {
-        event: {
-          select: {
-            id: true,
-            name: true,
-            eventImage: true,
-            startDate: true,
-            endDate: true,
+    let transactions;
+
+    if (role === "customer") {
+      transactions = await prisma.transaction.findMany({
+        where: { userId, },
+        include: {
+          event: {
+            select: {
+              id: true,
+              name: true,
+              eventImage: true,
+              startDate: true,
+              endDate: true,
+            },
           },
+          status: true,
+          voucher: true,
         },
-        status: true,
-        voucher: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      });
+    } else if (role === "event_organizer") {
+      transactions = await prisma.transaction.findMany({
+        where: { event: { userId } },
+        include: {
+          user: { select: { id: true, fullName: true, email: true } },
+          event: {
+            select: {
+              id: true,
+              name: true,
+              eventImage: true,
+              startDate: true,
+              endDate: true,
+            },
+          },
+          status: true,
+          voucher: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } else {
+      return res.status(403).json({ error: "Invalid role" });
+    }
 
     res.json({
       message: "User transactions retrieved successfully",
@@ -450,6 +496,28 @@ export const getUserTransactions = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Get user transactions error:", error);
     res.status(500).json({ error: "Failed to retrieve transactions" });
+  }
+};
+
+
+// GET all transactions (filter by status)
+export const getTransactions = async (req: Request, res: Response) => {
+  try {
+    const { status } = req.query;
+
+    const transactions = await prisma.transaction.findMany({
+      where: status ? { status: String(status).toUpperCase() as any } : {},
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        event: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(transactions);
+  } catch (err) {
+    console.error("Error fetching transactions:", err);
+    res.status(500).json({ error: "Failed to fetch transactions" });
   }
 };
 
@@ -617,12 +685,12 @@ export const rejectTransaction = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied. Not your event." });
     }
 
-    // Validasi: hanya transaction dengan status PAID yang bisa di-reject
-    if (transaction.status.name !== "PAID") {
-      return res.status(400).json({
-        error: "Cannot reject transaction with current status",
-      });
-    }
+    // Validasi: hanya transaction dengan status PENDING yang bisa di-reject
+    if (transaction.status.name !== "PENDING" && transaction.status.name !== "PAID") {
+    return res.status(400).json({
+      error: "Cannot reject transaction with current status",
+    });
+}
 
     const updatedTransaction = await prisma.$transaction(async (prisma) => {
       // mengembalikan available seats
