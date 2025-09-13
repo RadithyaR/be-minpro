@@ -70,23 +70,8 @@ export const getEvents = async (req: Request, res: Response) => {
     const events = await prisma.event.findMany({ include: { user: true } });
 
     const eventsWithStatus = events.map((event) => {
-      const now = new Date();
-      const startDate = new Date(event.startDate);
-      const endDate = new Date(event.endDate);
-
-      let status: string;
-
-      if (now < startDate) {
-        status = "upcoming"; // jika belum mulai status upcoming
-      } else if (now >= startDate && now <= endDate) {
-        status = "ongoing"; // jika sedang berjalan status ongoing
-      } else {
-        status = "finished"; //jika selesai status finished
-      }
-
       return {
         ...event,
-        status, // field virtual untuk status event
       };
     });
 
@@ -123,17 +108,8 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // Tambahkan status virtual dan statistics
+    // Tambahkan  statistics
     const eventsWithDetails = events.map((event) => {
-      const now = new Date();
-      const startDate = new Date(event.startDate);
-      const endDate = new Date(event.endDate);
-
-      let status: string;
-      if (now < startDate) status = "upcoming";
-      else if (now >= startDate && now <= endDate) status = "ongoing";
-      else status = "finished";
-
       // Hitung statistics
       const totalTransactions = event.transactions.length;
       const completedTransactions = event.transactions.filter(
@@ -151,7 +127,6 @@ export const getEventsByOrganizer = async (req: Request, res: Response) => {
 
       return {
         ...event,
-        status,
         statistics: {
           totalTransactions,
           completedTransactions,
@@ -183,24 +158,8 @@ export const getEventById = async (req: Request, res: Response) => {
     });
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    // status virtual
-    const now = new Date();
-    const startDate = new Date(event.startDate);
-    const endDate = new Date(event.endDate);
-
-    let status: string;
-
-    if (now < startDate) {
-      status = "upcoming";
-    } else if (now >= startDate && now <= endDate) {
-      status = "ongoing";
-    } else {
-      status = "finished";
-    }
-
     const eventWithStatus = {
       ...event,
-      status,
     };
 
     return res.json(eventWithStatus);
@@ -244,13 +203,15 @@ export const updateEvent = async (req: Request, res: Response) => {
       address: req.body.address ?? existing.address,
       city: req.body.city ?? existing.city,
       link: req.body.link ?? existing.link,
-      price: req.body.price !== undefined ? Number(req.body.price) : existing.price,
+      price:
+        req.body.price !== undefined ? Number(req.body.price) : existing.price,
       availableSeats:
         req.body.availableSeats !== undefined
           ? Number(req.body.availableSeats)
           : existing.availableSeats,
-      startDate:
-        req.body.startDate ? new Date(req.body.startDate) : existing.startDate,
+      startDate: req.body.startDate
+        ? new Date(req.body.startDate)
+        : existing.startDate,
       endDate: req.body.endDate ? new Date(req.body.endDate) : existing.endDate,
     };
 
@@ -260,7 +221,11 @@ export const updateEvent = async (req: Request, res: Response) => {
       if (existing.eventImage) {
         try {
           // existing.eventImage is like "event-images/evt-123.jpg"
-          const oldAbsPath = path.join(process.cwd(), "public", existing.eventImage);
+          const oldAbsPath = path.join(
+            process.cwd(),
+            "public",
+            existing.eventImage
+          );
           if (fs.existsSync(oldAbsPath)) {
             await fs.promises.unlink(oldAbsPath);
           }
@@ -287,7 +252,6 @@ export const updateEvent = async (req: Request, res: Response) => {
       .json({ error: "Internal server error", details: String(err) });
   }
 };
-
 
 // // DELETE event (Organizer only)
 export const deleteEvent = async (req: Request, res: Response) => {
@@ -316,4 +280,3 @@ export const deleteEvent = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
