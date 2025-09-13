@@ -28,7 +28,6 @@ export default class App {
 
     this.configure();
     this.routes();
-    this.initialScheduler();
     this.errorHandling();
   }
 
@@ -54,7 +53,6 @@ export default class App {
     this.app.use("/api/event", eventRouter);
     this.app.use("/api/transactions", transactionRouter);
     this.app.use("/api/profile", profileRouter);
-
   }
 
   private errorHandling(): void {
