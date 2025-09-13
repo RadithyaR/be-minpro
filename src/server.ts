@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import path from "path";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
 import revenueRoutes from "./routes/revenue.routes";
@@ -8,6 +9,9 @@ import overviewRoutes from "./routes/overview.routes";
 import topEventRoutes from "./routes/topevents.routes";
 import transactionStatusRoutes from "./routes/transactionstatus.routes";
 import eventRouter from "./routes/event.routes";
+import transactionRoutes from "./routes/transaction.routes";
+import profileRoutes from "./routes/profile.routes";
+
 
 dotenv.config();
 
@@ -20,6 +24,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
+// serve file statis 
+app.use("/payment-proof", express.static(path.join(__dirname, "../public/payment-proof")));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // routes
 app.use("/", authRoutes);
 app.use("/api/revenue", revenueRoutes);
@@ -28,6 +36,9 @@ app.use("/api/overview", overviewRoutes);
 app.use("/api/topevents", topEventRoutes);
 app.use("/api/transactions/status", transactionStatusRoutes);
 app.use("/api/event", eventRouter);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/profile", profileRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("API running...");
