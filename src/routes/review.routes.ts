@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import {
+  checkUserReview,
   createReview,
   deleteReview,
   getEventReviews,
@@ -26,6 +27,11 @@ router.post("/", authMiddleware(["customer"]), createReview);
 router.get("/user/my-reviews", authMiddleware(["customer"]), getUserReviews);
 router.put("/:id", authMiddleware(["customer"]), updateReview);
 router.delete("/:id", authMiddleware(["customer"]), deleteReview);
+router.get(
+  "/check/event/:eventId",
+  authMiddleware(["customer"]),
+  checkUserReview
+);
 
 /* ========================
    🔹 ORGANIZER ROUTES 

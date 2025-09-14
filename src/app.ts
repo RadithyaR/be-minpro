@@ -28,6 +28,7 @@ export default class App {
 
     this.configure();
     this.routes();
+    this.initialScheduler();
     this.errorHandling();
   }
 

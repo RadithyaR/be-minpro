@@ -334,6 +334,31 @@ export const deleteReview = async (req: Request, res: Response) => {
   }
 };
 
+export const checkUserReview = async (req: Request, res: Response) => {
+  try {
+    const customerId = (req as any).user.userId;
+    const { eventId } = req.params;
+
+    const review = await prisma.review.findFirst({
+      where: {
+        userId: customerId,
+        eventId: Number(eventId),
+      },
+    });
+
+    res.json({
+      message: "Review check completed",
+      data: {
+        hasReview: !!review,
+        review: review || null,
+      },
+    });
+  } catch (error) {
+    console.error("Check review error:", error);
+    res.status(500).json({ error: "Failed to check review" });
+  }
+};
+
 // GET Organizer's Event Reviews (Organizer only)
 export const getOrganizerEventReviews = async (req: Request, res: Response) => {
   try {
@@ -397,9 +422,6 @@ const updateEventAverageRating = async (eventId: number) => {
     where: { eventId: eventId },
     _avg: { rating: true },
   });
-
-  // Anda bisa menambahkan field averageRating di model Event jika needed
-  // Atau simpan di cache untuk performance
   console.log(
     `Event ${eventId} average rating updated: ${averageRating._avg.rating}`
   );
