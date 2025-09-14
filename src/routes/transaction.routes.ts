@@ -18,9 +18,21 @@ import {
 const router = Router();
 
 router.post("/", authMiddleware(["customer"]), createTransaction);
-router.get("/", authMiddleware(["customer", "event_organizer"]), getUserTransactions);
-router.get("/", authMiddleware(["customer", "event_organizer"]), getTransactions);
-router.get("/:id", authMiddleware(["customer", "event_organizer"]), getTransactionById);
+router.get(
+  "/user",
+  authMiddleware(["customer", "event_organizer"]),
+  getUserTransactions
+);
+router.get(
+  "/",
+  authMiddleware(["customer", "event_organizer"]),
+  getTransactions
+);
+router.get(
+  "/:id",
+  authMiddleware(["customer", "event_organizer"]),
+  getTransactionById
+);
 router.post(
   "/:id/payment",
   authMiddleware(["customer"]),
@@ -28,8 +40,11 @@ router.post(
   uploadPaymentProof
 );
 
-router.patch("/:id/approve", authMiddleware(["customer", "event_organizer"]), approveTransaction);
-
+router.patch(
+  "/:id/approve",
+  authMiddleware(["customer", "event_organizer"]),
+  approveTransaction
+);
 
 router.get(
   "/event/:eventId",
