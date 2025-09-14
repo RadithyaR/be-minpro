@@ -528,11 +528,15 @@ export const getTransactions = async (req: Request, res: Response) => {
       include: {
         user: { select: { id: true, fullName: true, email: true } },
         event: { select: { id: true, name: true } },
+        status: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(transactions);
+    return res.json({
+      message: "Transactions retrieved successfully",
+      data: transactions,
+    });
   } catch (err) {
     console.error("Error fetching transactions:", err);
     res.status(500).json({ error: "Failed to fetch transactions" });
