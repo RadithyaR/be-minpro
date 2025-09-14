@@ -325,7 +325,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       where: { id: Number(id) },
       data: {
         status: {
-          connect: { id: 2 }, // Set status to PAID
+          connect: { id: 5 }, // Set status to DONE
         },
       },
     });
@@ -333,71 +333,6 @@ export const approveTransaction = async (req: Request, res: Response) => {
     res.json({ message: "Transaction approved", transaction });
   } catch (err) {
     res.status(500).json({ error: "Failed to approve transaction" });
-  }
-};
-
-// EXPIRE Transaction (auto)
-export const cancelTransaction = async (transactionId: number) => {
-  try {
-    await prisma.$transaction(async (tx) => {
-      // Get transaction details
-      const transaction = await tx.transaction.findUnique({
-        where: { id: transactionId },
-        include: { points: true, coupons: true, voucher: true, event: true },
-      });
-
-      if (!transaction) return;
-
-      // Rollback event seats
-      await tx.event.update({
-        where: { id: transaction.eventId },
-        data: { availableSeats: { increment: transaction.quantity } },
-      });
-
-      //Rollback points
-      for (const point of transaction.points) {
-        await tx.point.update({
-          where: { id: point.id },
-          data: {
-            remaining:
-              (point.remaining || 0) +
-              (point.amount - (point.remaining || point.amount)),
-            transactionId: null,
-          },
-        });
-      }
-
-      //Rollback coupons
-      for (const coupon of transaction.coupons) {
-        await tx.coupon.update({
-          where: { id: coupon.id },
-          data: {
-            isUsed: false,
-            nominal: coupon.nominal + (coupon.nominal - coupon.nominal),
-            transactionId: null,
-          },
-        });
-      }
-
-      //Rollback voucher
-      if (transaction.voucherId) {
-        await tx.voucher.update({
-          where: { id: transaction.voucherId },
-          data: {
-            quota: { increment: 1 },
-            isUsed: false,
-          },
-        });
-      }
-
-      // Update transaction
-      await tx.transaction.update({
-        where: { id: transactionId },
-        data: { statusId: 3 }, // CANCELLED
-      });
-    });
-  } catch (error) {
-    console.error("Error cancelling transaction:", error);
   }
 };
 
@@ -411,7 +346,7 @@ export const getUserTransactions = async (req: Request, res: Response) => {
 
     if (role === "customer") {
       transactions = await prisma.transaction.findMany({
-        where: { userId, },
+        where: { userId },
         include: {
           event: {
             select: {
@@ -420,6 +355,7 @@ export const getUserTransactions = async (req: Request, res: Response) => {
               eventImage: true,
               startDate: true,
               endDate: true,
+              reviews: true,
             },
           },
           status: true,
@@ -459,7 +395,6 @@ export const getUserTransactions = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to retrieve transactions" });
   }
 };
-
 
 // GET all transactions (filter by status)
 export const getTransactions = async (req: Request, res: Response) => {
@@ -575,7 +510,7 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     const updatedTransaction = await prisma.transaction.update({
       where: { id: Number(id) },
       data: {
-        statusId: 2, // PAID -> DONE
+        statusId: 5, // DONE
       },
       include: {
         event: true,
@@ -647,11 +582,14 @@ export const rejectTransaction = async (req: Request, res: Response) => {
     }
 
     // Validasi: hanya transaction dengan status PENDING yang bisa di-reject
-    if (transaction.status.name !== "PENDING" && transaction.status.name !== "PAID") {
-    return res.status(400).json({
-      error: "Cannot reject transaction with current status",
-    });
-}
+    if (
+      transaction.status.name !== "PENDING" &&
+      transaction.status.name !== "PAID"
+    ) {
+      return res.status(400).json({
+        error: "Cannot reject transaction with current status",
+      });
+    }
 
     const updatedTransaction = await prisma.$transaction(async (prisma) => {
       // mengembalikan available seats
@@ -713,7 +651,7 @@ export const rejectTransaction = async (req: Request, res: Response) => {
       return await prisma.transaction.update({
         where: { id: Number(id) },
         data: {
-          statusId: 3, // FAILED
+          statusId: 3, // REJECTED
         },
         include: {
           event: true,
