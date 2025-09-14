@@ -123,9 +123,58 @@ const autoCancelTransaction = async (transactionId: number) => {
   }
 };
 
+const checkAndUpdateEventStatus = async () => {
+  try {
+    const now = new Date();
+
+    console.log("Running event status check...");
+
+    // Update event yang sudah lewat endDate menjadi INACTIVE
+    const completedEvents = await prisma.event.findMany({
+      where: {
+        endDate: { lte: now },
+        statusEvent: { not: "INACTIVE" }, // Hanya event yang belum INACTIVE
+      },
+    });
+
+    console.log(`Found ${completedEvents.length} events to mark as INACTIVE`);
+
+    for (const event of completedEvents) {
+      await prisma.event.update({
+        where: { id: event.id },
+        data: { statusEvent: "INACTIVE" },
+      });
+      console.log(`Marked event as INACTIVE: ${event.id} - ${event.name}`);
+    }
+
+    // Optional: Update event yang startDate sudah lewat tetapi endDate belum menjadi ACTIVE
+    const activeEvents = await prisma.event.findMany({
+      where: {
+        startDate: { lte: now },
+        endDate: { gt: now },
+        statusEvent: { not: "ACTIVE" }, // Hanya event yang belum ACTIVE
+      },
+    });
+
+    console.log(`Found ${activeEvents.length} events to mark as ACTIVE`);
+
+    for (const event of activeEvents) {
+      await prisma.event.update({
+        where: { id: event.id },
+        data: { statusEvent: "ACTIVE" },
+      });
+      console.log(`Marked event as ACTIVE: ${event.id} - ${event.name}`);
+    }
+  } catch (error) {
+    console.error("Error updating event status:", error);
+  }
+};
+
 const scheduleTask = () => {
   try {
     const scheduleRule = "*/30 * * * *"; //periksa setiap 30 menit
+
+    const eventStatusScheduleRule = "0 0 * * *"; // periksa setiap hari jam 00:00
 
     cron.schedule(scheduleRule, async () => {
       console.log("Running transaction expiry check...");
@@ -154,7 +203,7 @@ const scheduleTask = () => {
 
       const unconfirmedTransactions = await prisma.transaction.findMany({
         where: {
-          status: { name: "PAID" }, // ✅ Gunakan status yang benar
+          status: { name: "PAID" },
           createdAt: { lte: threeDaysAgo },
           paymentProof: { not: null }, // Sudah upload payment proof
         },
@@ -172,7 +221,13 @@ const scheduleTask = () => {
         );
       }
     });
+    // Scheduler BARU untuk event status check
+    cron.schedule(eventStatusScheduleRule, async () => {
+      console.log("Running event status check...");
+      await checkAndUpdateEventStatus();
+    });
 
+    console.log("Event status scheduler started (runs daily at 00:00)");
     console.log("Transaction expiry scheduler started (runs every 30 minutes)");
   } catch (error) {
     console.error("Error in transaction expiration scheduler:", error);
