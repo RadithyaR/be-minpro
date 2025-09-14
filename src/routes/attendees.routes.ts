@@ -19,7 +19,7 @@ if (eventId) {
 
 const attendees = await prisma.transaction.findMany({
   where: {
-    statusId: 2,
+    statusId: 5, // hanya yang DONE
     eventId: {
       in: eventIds && eventIds.length > 0 ? eventIds : [], // kosong → hasil 0
     },

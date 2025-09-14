@@ -332,22 +332,40 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
   }
 };
 
-// APPROVE transaction
+// ===============================
+// APPROVE transaction (Organizer -> PAID -> DONE)
+// ===============================
 export const approveTransaction = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    const transaction = await prisma.transaction.update({
+    const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
-      data: {
-        status: {
-          connect: { id: 2 }, // Set status to PAID
-        },
+      include: {
+        status: true,
+        event: { select: { name: true } },
+        user: { select: { email: true, fullName: true } }, 
       },
     });
 
-    res.json({ message: "Transaction approved", transaction });
+    if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+    // send email to user
+    await sendEmail(
+      transaction.user.email, // 
+      "Transaksi Disetujui",
+      `Hai ${transaction.user.fullName}, 
+      transaksi kamu untuk event "${transaction.event.name}" telah disetujui.`
+    );
+
+    const updated = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: { statusId: 5 }, // DONE
+      include: { event: true, user: true, status: true },
+    });
+
+    res.json({ message: "Transaction approved -> DONE", data: updated });
   } catch (err) {
+    console.error("Approve transaction error:", err);
     res.status(500).json({ error: "Failed to approve transaction" });
   }
 };
@@ -649,145 +667,144 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to accept transaction" });
   }
 };
-
-// REJECT Transaction (Organizer only)
+// ===============================
+// REJECT transaction (Organizer -> PAID -> REJECT)
+// ===============================
 export const rejectTransaction = async (req: Request, res: Response) => {
   try {
-    const organizerId = (req as any).user.userId;
     const { id } = req.params;
 
-    const transaction = await prisma.transaction.findUnique({
+   const transaction = await prisma.transaction.findUnique({
+  where: { id: Number(id) },
+  include: {
+    status: true,
+    event: { select: { name: true } },
+    user: { select: { email: true, fullName: true } }, 
+  },
+});
+
+if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+    // rollback seat
+    await prisma.event.update({
+      where: { id: transaction.eventId },
+      data: { availableSeats: { increment: transaction.quantity } },
+    });
+
+    // send email to user
+    await sendEmail(
+      transaction.user.email,
+      "Transaksi Ditolak",
+      `Hai ${transaction.user.fullName}, 
+      transaksi kamu untuk event "${transaction.event.name}" telah ditolak.`
+    );
+
+    // rollback point
+    if ((transaction.discountPoint ?? 0) > 0) {
+      await prisma.point.updateMany({
+        where: { transactionId: transaction.id },
+        data: { transactionId: null },
+      });
+    }
+
+    // rollback coupon
+    if ((transaction.discountCoupon ?? 0) > 0) {
+      await prisma.coupon.updateMany({
+        where: { transactionId: transaction.id },
+        data: { isUsed: false, transactionId: null },
+      });
+    }
+
+    // rollback voucher
+    if (transaction.voucherId) {
+      await prisma.voucher.update({
+        where: { id: transaction.voucherId },
+        data: { quota: { increment: 1 }, isUsed: false },
+      });
+    }
+
+    const updated = await prisma.transaction.update({
       where: { id: Number(id) },
-      include: {
-        event: {
-          include: {
-            user: {
-              select: {
-                fullName: true,
-                email: true,
-              },
-            },
-          },
-        },
-        status: true,
-        points: true,
-        coupons: true,
-        voucher: true,
-      },
+      data: { statusId: 3 }, // REJECT
+      include: { event: true, user: true, status: true },
     });
 
-    if (!transaction) {
-      return res.status(404).json({ error: "Transaction not found" });
-    }
-
-    // Validasi: hanya organizer pemilik event yang bisa reject
-    if (transaction.event.userId !== organizerId) {
-      return res.status(403).json({ error: "Access denied. Not your event." });
-    }
-
-    // Validasi: hanya transaction dengan status PENDING yang bisa di-reject
-    if (transaction.status.name !== "PENDING" && transaction.status.name !== "PAID") {
-    return res.status(400).json({
-      error: "Cannot reject transaction with current status",
-    });
-}
-
-    const updatedTransaction = await prisma.$transaction(async (prisma) => {
-      // mengembalikan available seats
-      await prisma.event.update({
-        where: { id: transaction.eventId },
-        data: { availableSeats: { increment: transaction.quantity } },
-      });
-
-      // mengembalikan points jika digunakan
-      if (transaction.discountPoint !== null && transaction.discountPoint > 0) {
-        if (transaction.discountPoint > 0) {
-          const usedPoints = await prisma.point.findMany({
-            where: { transactionId: transaction.id },
-          });
-
-          for (const point of usedPoints) {
-            await prisma.point.update({
-              where: { id: point.id },
-              data: {
-                remaining: { increment: point.amount },
-                transactionId: null,
-              },
-            });
-          }
-        }
-      }
-      // mengembalikan coupons jika digunakan
-      if (transaction.discountPoint !== null && transaction.discountPoint > 0) {
-        if (transaction.discountPoint > 0) {
-          const usedCoupons = await prisma.coupon.findMany({
-            where: { transactionId: transaction.id },
-          });
-
-          for (const coupon of usedCoupons) {
-            await prisma.coupon.update({
-              where: { id: coupon.id },
-              data: {
-                isUsed: false,
-                nominal: { increment: coupon.nominal },
-                transactionId: null,
-              },
-            });
-          }
-        }
-      }
-
-      // mengembalikan  voucher jika digunakan
-      if (transaction.voucherId) {
-        await prisma.voucher.update({
-          where: { id: transaction.voucherId },
-          data: {
-            quota: { increment: 1 },
-            isUsed: false,
-          },
-        });
-      }
-
-      // Update transaction status to FAILED
-      return await prisma.transaction.update({
-        where: { id: Number(id) },
-        data: {
-          statusId: 3, // FAILED
-        },
-        include: {
-          event: true,
-          status: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              fullName: true,
-            },
-          },
-        },
-      });
-    });
-
-    //  Kirim email notifikasi ke customer
-    await transporter.sendMail({
-      from: `"EventKu" <${process.env.EMAIL_USER}>`,
-      to: transaction.event.user.email,
-      subject: "Transaction Rejected",
-      html: `
-        <p>Halo ${transaction.event.user.fullName || "User"},</p>
-        <p>Transaksi anda pada ${transaction.event.name} Ditolak</p>
-      `,
-    });
-
-    res.json({
-      message: "Transaction rejected successfully",
-      data: updatedTransaction,
-    });
-  } catch (error) {
-    console.error("Reject transaction error:", error);
+    res.json({ message: "Transaction rejected -> REJECT", data: updated });
+  } catch (err) {
+    console.error("Reject transaction error:", err);
     res.status(500).json({ error: "Failed to reject transaction" });
   }
 };
+
+// ===============================
+// CANCEL after DONE (Customer request cancel)
+// ===============================
+export const cancelAfterDone = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const transaction = await prisma.transaction.findUnique({
+    where: { id: Number(id) },
+    include: {
+      status: true,
+      event: { select: { name: true } },
+      user: { select: { email: true, fullName: true } }, 
+    },
+  });
+
+  if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+  // send email to user
+  await sendEmail(
+    transaction.user.email, // 
+    "Transaksi Dibatalkan",
+    `Hai ${transaction.user.fullName}, 
+    transaksi kamu untuk event "${transaction.event.name}" telah dibatalkan.`
+  );
+
+    // rollback seat
+    await prisma.event.update({
+      where: { id: transaction.eventId },
+      data: { availableSeats: { increment: transaction.quantity } },
+    });
+
+    // rollback point
+    if ((transaction.discountPoint ?? 0) > 0) {
+      await prisma.point.updateMany({
+        where: { transactionId: transaction.id },
+        data: { transactionId: null },
+      });
+    }
+
+    // rollback coupon
+    if ((transaction.discountCoupon ?? 0) > 0) {
+      await prisma.coupon.updateMany({
+        where: { transactionId: transaction.id },
+        data: { isUsed: false, transactionId: null },
+      });
+    }
+
+    // rollback voucher
+    if (transaction.voucherId) {
+      await prisma.voucher.update({
+        where: { id: transaction.voucherId },
+        data: { quota: { increment: 1 }, isUsed: false },
+      });
+    }
+
+    const updated = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: { statusId: 4 }, // CANCELLED
+      include: { event: true, user: true, status: true },
+    });
+
+    res.json({ message: "Transaction cancelled after DONE", data: updated });
+  } catch (err) {
+    console.error("Cancel after DONE error:", err);
+    res.status(500).json({ error: "Failed to cancel transaction" });
+  }
+};
+
 
 // GET Transactions (Event Organizer)
 export const getEventTransactions = async (req: Request, res: Response) => {
@@ -833,3 +850,4 @@ export const getEventTransactions = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to retrieve event transactions" });
   }
 };
+

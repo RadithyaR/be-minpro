@@ -27,7 +27,7 @@ router.get("/", async (req, res) => {
       include: {
         transactions: {
           where: {
-            statusId: 2, // hanya yang sudah dibayar
+            statusId: 5, // hanya yang sudah dibayar
           },
         },
       },
