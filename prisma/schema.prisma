@@ -42,11 +42,6 @@ model Role {
   @@map("roles")
 }
 
-enum StatusEvent {
-  ACTIVE   // 1 aktif
-  INACTIVE // 2 non aktif
-}
-
 model Event {
   id             Int           @id @default(autoincrement())
   userId         Int
@@ -62,42 +57,35 @@ model Event {
   city           String?
   link           String?
   locationType   LocationType
+  statusEvent    StatusEvent   @default(ACTIVE)
   user           User          @relation("UserEvents", fields: [userId], references: [id])
   reviews        Review[]
   transactions   Transaction[]
   vouchers       Voucher[]
-  statusEvent    StatusEvent    @default(ACTIVE) // 1 aktif, 2 non aktif
 
   @@map("events")
 }
 
 model Transaction {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  user       User      @relation(fields: [userId], references: [id])
-
-  eventId    Int
-  event      Event     @relation(fields: [eventId], references: [id])
-
-  quantity   Int       @default(1)     // minimal 1 tiket
-  baseAmount Int                       // harga tiket × quantity
-
-  discountCoupon  Int?  @default(0)
-  discountVoucher Int?  @default(0)
-  discountPoint   Int?  @default(0)
-  finalAmount     Int                 // baseAmount - diskon total
-  
-  voucherId      Int?          
-  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
-
-  points        Point[]
-  coupons       Coupon[]
-
-  paymentProof   String?              // path/url bukti bayar
-  statusId       Int
-  status         PaymentStatus @relation(fields: [statusId], references: [id])
-
-  createdAt DateTime  @default(now())
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  eventId         Int
+  quantity        Int           @default(1)
+  baseAmount      Int
+  discountCoupon  Int?          @default(0)
+  discountVoucher Int?          @default(0)
+  discountPoint   Int?          @default(0)
+  finalAmount     Int
+  voucherId       Int?
+  paymentProof    String?
+  statusId        Int
+  createdAt       DateTime      @default(now())
+  points          Point[]
+  coupons         Coupon[]
+  event           Event         @relation(fields: [eventId], references: [id])
+  status          PaymentStatus @relation(fields: [statusId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+  voucher         Voucher?      @relation(fields: [voucherId], references: [id])
 
   @@map("transactions")
 }
@@ -176,6 +164,11 @@ model Review {
   user      User     @relation(fields: [userId], references: [id])
 
   @@map("reviews")
+}
+
+enum StatusEvent {
+  ACTIVE
+  INACTIVE
 }
 
 enum LocationType {

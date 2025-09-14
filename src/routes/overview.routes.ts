@@ -42,11 +42,11 @@ router.get("/", async (req, res) => {
     const whereFilter = startDate && endDate
     ? {
         createdAt: { gte: startDate, lte: endDate },
-        statusId: 2, // langsung pakai FK, bukan relasi
+        statusId: 5, // langsung pakai FK, bukan relasi
         eventId: eventIds ? { in: eventIds } : undefined
       }
     : {
-        statusId: 2,
+        statusId: 5, // langsung pakai FK, bukan relasi
         eventId: eventIds ? { in: eventIds } : undefined
       };
 

@@ -20,7 +20,7 @@ router.get("/", async (req, res) => {
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        statusId: 2,
+        statusId: 5, // hanya yg DONE
         eventId: {
           in: eventIds && eventIds.length > 0 ? eventIds : [-1], // kasih id dummy yg pasti ga ada
         },

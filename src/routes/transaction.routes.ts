@@ -12,6 +12,7 @@ import {
   rejectTransaction,
   uploadPaymentProof,
   approveTransaction,
+  cancelAfterDone,
   // refundTransaction,
 } from "../controllers/event/transaction.controller";
 
@@ -61,6 +62,8 @@ router.patch(
   authMiddleware(["event_organizer"]),
   rejectTransaction
 );
+
+router.patch("/:id/cancel", authMiddleware(["event_organizer", "customer"]), cancelAfterDone);
 // router.patch(
 //   "/:id/refund",
 //   authMiddleware(["event_organizer"]),
