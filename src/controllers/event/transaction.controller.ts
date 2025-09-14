@@ -417,10 +417,16 @@ export const getUserTransactions = async (req: Request, res: Response) => {
 // GET all transactions (filter by status)
 export const getTransactions = async (req: Request, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, event } = req.query;
+    const userId = (req as any).user?.userId;
 
     const transactions = await prisma.transaction.findMany({
-      where: status ? { status: String(status).toUpperCase() as any } : {},
+      where: {
+        status: status ? String(status).toUpperCase() as any : undefined,
+        event: {
+          userId: userId, // ✅ ini hanya valid kalau schema Event punya userId
+        },
+      },
       include: {
         user: { select: { id: true, fullName: true, email: true } },
         event: { select: { id: true, name: true } },
