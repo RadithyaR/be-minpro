@@ -316,22 +316,40 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
   }
 };
 
-// APPROVE transaction
+// ===============================
+// APPROVE transaction (Organizer -> PAID -> DONE)
+// ===============================
 export const approveTransaction = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    const transaction = await prisma.transaction.update({
+    const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
-      data: {
-        status: {
-          connect: { id: 5 }, // Set status to DONE
-        },
+      include: {
+        status: true,
+        event: { select: { name: true } },
+        user: { select: { email: true, fullName: true } }, 
       },
     });
 
-    res.json({ message: "Transaction approved", transaction });
+    if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+    // send email to user
+    await sendEmail(
+      transaction.user.email, // 
+      "Transaksi Disetujui",
+      `Hai ${transaction.user.fullName}, 
+      transaksi kamu untuk event "${transaction.event.name}" telah disetujui.`
+    );
+
+    const updated = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: { statusId: 5 }, // DONE
+      include: { event: true, user: true, status: true },
+    });
+
+    res.json({ message: "Transaction approved -> DONE", data: updated });
   } catch (err) {
+    console.error("Approve transaction error:", err);
     res.status(500).json({ error: "Failed to approve transaction" });
   }
 };
@@ -399,18 +417,28 @@ export const getUserTransactions = async (req: Request, res: Response) => {
 // GET all transactions (filter by status)
 export const getTransactions = async (req: Request, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, event } = req.query;
+    const userId = (req as any).user?.userId;
 
     const transactions = await prisma.transaction.findMany({
-      where: status ? { status: String(status).toUpperCase() as any } : {},
+      where: {
+        status: status ? String(status).toUpperCase() as any : undefined,
+        event: {
+          userId: userId, // ✅ ini hanya valid kalau schema Event punya userId
+        },
+      },
       include: {
         user: { select: { id: true, fullName: true, email: true } },
         event: { select: { id: true, name: true } },
+        status: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(transactions);
+    return res.json({
+      message: "Transactions retrieved successfully",
+      data: transactions,
+    });
   } catch (err) {
     console.error("Error fetching transactions:", err);
     res.status(500).json({ error: "Failed to fetch transactions" });
@@ -545,14 +573,15 @@ export const acceptTransaction = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to accept transaction" });
   }
 };
-
-// REJECT Transaction (Organizer only)
+// ===============================
+// REJECT transaction (Organizer -> PAID -> REJECT)
+// ===============================
 export const rejectTransaction = async (req: Request, res: Response) => {
   try {
     const organizerId = (req as any).user.userId;
     const { id } = req.params;
 
-    const transaction = await prisma.transaction.findUnique({
+   const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
       include: {
         event: {
@@ -688,6 +717,76 @@ export const rejectTransaction = async (req: Request, res: Response) => {
   }
 };
 
+// ===============================
+// CANCEL after DONE (Customer request cancel)
+// ===============================
+export const cancelAfterDone = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const transaction = await prisma.transaction.findUnique({
+    where: { id: Number(id) },
+    include: {
+      status: true,
+      event: { select: { name: true } },
+      user: { select: { email: true, fullName: true } }, 
+    },
+  });
+
+  if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+  // send email to user
+  await sendEmail(
+    transaction.user.email, // 
+    "Transaksi Dibatalkan",
+    `Hai ${transaction.user.fullName}, 
+    transaksi kamu untuk event "${transaction.event.name}" telah dibatalkan.`
+  );
+
+    // rollback seat
+    await prisma.event.update({
+      where: { id: transaction.eventId },
+      data: { availableSeats: { increment: transaction.quantity } },
+    });
+
+    // rollback point
+    if ((transaction.discountPoint ?? 0) > 0) {
+      await prisma.point.updateMany({
+        where: { transactionId: transaction.id },
+        data: { transactionId: null },
+      });
+    }
+
+    // rollback coupon
+    if ((transaction.discountCoupon ?? 0) > 0) {
+      await prisma.coupon.updateMany({
+        where: { transactionId: transaction.id },
+        data: { isUsed: false, transactionId: null },
+      });
+    }
+
+    // rollback voucher
+    if (transaction.voucherId) {
+      await prisma.voucher.update({
+        where: { id: transaction.voucherId },
+        data: { quota: { increment: 1 }, isUsed: false },
+      });
+    }
+
+    const updated = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: { statusId: 4 }, // CANCELLED
+      include: { event: true, user: true, status: true },
+    });
+
+    res.json({ message: "Transaction cancelled after DONE", data: updated });
+  } catch (err) {
+    console.error("Cancel after DONE error:", err);
+    res.status(500).json({ error: "Failed to cancel transaction" });
+  }
+};
+
+
 // GET Transactions (Event Organizer)
 export const getEventTransactions = async (req: Request, res: Response) => {
   try {
@@ -732,3 +831,4 @@ export const getEventTransactions = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to retrieve event transactions" });
   }
 };
+
